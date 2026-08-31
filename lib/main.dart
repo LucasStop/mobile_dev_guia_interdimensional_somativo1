@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'data/local_storage.dart';
 import 'providers/auth_provider.dart';
+import 'screens/catalog_screen.dart';
 import 'screens/login_screen.dart';
 
 Future<void> main() async {
@@ -43,28 +44,6 @@ class _SessionGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = context.select<AuthProvider, bool>((a) => a.isLoggedIn);
-    return isLoggedIn ? const _CatalogPlaceholder() : const LoginScreen();
-  }
-}
-
-/// Substituído pela tela de catálogo na fase seguinte.
-class _CatalogPlaceholder extends StatelessWidget {
-  const _CatalogPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Guia Interdimensional'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sair',
-            onPressed: () => context.read<AuthProvider>().logout(),
-          ),
-        ],
-      ),
-      body: const Center(child: Text('Catálogo em construção.')),
-    );
+    return isLoggedIn ? const CatalogScreen() : const LoginScreen();
   }
 }

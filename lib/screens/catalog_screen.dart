@@ -1,0 +1,271 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../models/character.dart';
+import '../providers/auth_provider.dart';
+import '../services/rick_morty_service.dart';
+import '../widgets/character_card.dart';
+import '../widgets/error_view.dart';
+import '../widgets/loading_view.dart';
+import 'character_detail_screen.dart';
+
+/// Tela principal (RF01): grade paginada de personagens.
+class CatalogScreen extends StatefulWidget {
+  const CatalogScreen({super.key});
+
+  @override
+  State<CatalogScreen> createState() => _CatalogScreenState();
+}
+
+class _CatalogScreenState extends State<CatalogScreen> {
+  final _service = RickMortyService();
+
+  /// Lista acumulada: "Carregar Mais" acrescenta à grade em vez de trocá-la.
+  final List<Character> _characters = [];
+
+  /// O `FutureBuilder` governa apenas a **primeira** carga — é ele que decide
+  /// entre indicador de progresso, erro e grade. As páginas seguintes chegam
+  /// por `setState` sobre `_characters`, porque refazer o Future a cada
+  /// "Carregar Mais" reconstruiria a tela inteira e perderia a rolagem.
+  late Future<void> _initialLoad;
+
+  int _page = 1;
+  bool _hasNext = true;
+  bool _isLoadingMore = false;
+  String? _loadMoreError;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialLoad = _loadFirstPage();
+  }
+
+  @override
+  void dispose() {
+    _service.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFirstPage() async {
+    final page = await _service.fetchCharacters(page: 1);
+    _characters
+      ..clear()
+      ..addAll(page.characters);
+    _page = 1;
+    _hasNext = page.hasNext;
+  }
+
+  void _retryInitialLoad() {
+    setState(() {
+      _loadMoreError = null;
+      _initialLoad = _loadFirstPage();
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasNext) return;
+
+    setState(() {
+      _isLoadingMore = true;
+      _loadMoreError = null;
+    });
+
+    try {
+      final next = await _service.fetchCharacters(page: _page + 1);
+      if (!mounted) return;
+      setState(() {
+        _characters.addAll(next.characters);
+        _page += 1;
+        _hasNext = next.hasNext;
+        _isLoadingMore = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      // A grade já carregada continua na tela: a falha em buscar a próxima
+      // página não pode apagar o que o usuário já estava vendo.
+      setState(() {
+        _isLoadingMore = false;
+        _loadMoreError = e.message;
+      });
+    }
+  }
+
+  void _openDetail(Character character) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CharacterDetailScreen(character: character),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Guia Interdimensional'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sair da conta',
+            onPressed: () => context.read<AuthProvider>().logout(),
+          ),
+        ],
+      ),
+      body: FutureBuilder<void>(
+        future: _initialLoad,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const LoadingView(message: 'Carregando o catálogo...');
+          }
+          if (snapshot.hasError) {
+            return ErrorView(
+              message: snapshot.error is ApiException
+                  ? snapshot.error.toString()
+                  : 'Não foi possível carregar o catálogo.',
+              onRetry: _retryInitialLoad,
+            );
+          }
+          return _CatalogGrid(
+            characters: _characters,
+            hasNext: _hasNext,
+            isLoadingMore: _isLoadingMore,
+            loadMoreError: _loadMoreError,
+            onLoadMore: _loadMore,
+            onOpenDetail: _openDetail,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CatalogGrid extends StatelessWidget {
+  final List<Character> characters;
+  final bool hasNext;
+  final bool isLoadingMore;
+  final String? loadMoreError;
+  final VoidCallback onLoadMore;
+  final void Function(Character) onOpenDetail;
+
+  const _CatalogGrid({
+    required this.characters,
+    required this.hasNext,
+    required this.isLoadingMore,
+    required this.loadMoreError,
+    required this.onLoadMore,
+    required this.onOpenDetail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // A grade acompanha a largura disponível e o tamanho de fonte do sistema:
+    // com fonte grande os cards ficam mais altos em vez de cortar o texto
+    // (RF10).
+    final width = MediaQuery.sizeOf(context).width;
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final columns = width ~/ 180 == 0 ? 2 : (width ~/ 180).clamp(2, 5);
+
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(12),
+          sliver: SliverGrid.builder(
+            itemCount: characters.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.72 / textScale.clamp(1.0, 1.6),
+            ),
+            itemBuilder: (context, index) {
+              final character = characters[index];
+              return CharacterCard(
+                character: character,
+                onTap: () => onOpenDetail(character),
+              );
+            },
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
+            child: _LoadMoreSection(
+              hasNext: hasNext,
+              isLoading: isLoadingMore,
+              errorMessage: loadMoreError,
+              onLoadMore: onLoadMore,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Rodapé da grade. Some quando a API sinaliza que não há próxima página
+/// (`info.next == null`, o que acontece na página 42) — sem isso o botão
+/// continuaria pedindo uma página inexistente e devolvendo erro.
+class _LoadMoreSection extends StatelessWidget {
+  final bool hasNext;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback onLoadMore;
+
+  const _LoadMoreSection({
+    required this.hasNext,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.onLoadMore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (!hasNext) {
+      return Semantics(
+        liveRegion: true,
+        child: Text(
+          'Você chegou ao fim do catálogo.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    if (isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(8),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        if (errorMessage != null) ...[
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              errorMessage!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        ElevatedButton.icon(
+          onPressed: onLoadMore,
+          icon: const Icon(Icons.expand_more),
+          label: Text(errorMessage == null ? 'Carregar Mais' : 'Tentar novamente'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(200, 48),
+          ),
+        ),
+      ],
+    );
+  }
+}
