@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'data/local_storage.dart';
 import 'providers/auth_provider.dart';
 import 'providers/character_list_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/catalog_screen.dart';
 import 'screens/login_screen.dart';
 import 'theme/app_theme.dart';
@@ -26,12 +27,15 @@ class GuiaInterdimensionalApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider(storage)),
         ChangeNotifierProvider(create: (_) => FavoritesProvider(storage)),
         ChangeNotifierProvider(create: (_) => WatchedProvider(storage)),
+        ChangeNotifierProvider(create: (_) => ThemeProvider(storage)),
       ],
-      child: MaterialApp(
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => MaterialApp(
         title: 'Guia Interdimensional',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
+        themeMode: themeProvider.mode,
         // O aumento de fonte do sistema é respeitado, mas com teto: acima de
         // 1.6x o layout deixaria de caber (RF10).
         builder: (context, child) => MediaQuery(
@@ -40,7 +44,8 @@ class GuiaInterdimensionalApp extends StatelessWidget {
           ),
           child: child!,
         ),
-        home: const _SessionGate(),
+          home: const _SessionGate(),
+        ),
       ),
     );
   }

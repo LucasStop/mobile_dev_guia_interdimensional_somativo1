@@ -17,6 +17,7 @@ class LocalStorage {
   static const _keyUser = 'session_user';
   static const _keyFavorites = 'favorites';
   static const _keyWatched = 'watched';
+  static const _keyThemeMode = 'theme_mode';
 
   final SharedPreferences _prefs;
 
@@ -33,6 +34,14 @@ class LocalStorage {
   Future<void> saveSession(String user) => _prefs.setString(_keyUser, user);
 
   Future<void> clearSession() => _prefs.remove(_keyUser);
+
+  // --- Preferência de tema ---
+
+  /// Guardado como o nome do `ThemeMode` (`system`, `light`, `dark`).
+  String? get themeMode => _prefs.getString(_keyThemeMode);
+
+  Future<void> saveThemeMode(String mode) =>
+      _prefs.setString(_keyThemeMode, mode);
 
   // --- Listas de personagens (RF06) ---
 
