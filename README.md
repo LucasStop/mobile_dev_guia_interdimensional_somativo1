@@ -8,45 +8,48 @@ Projeto Somativo 1 da disciplina **Mobile Development: Framework** — Bacharela
 |---|---|
 | **Equipe** | Lucas Stopinski da Silva · Lucas Bruno e Silva |
 | **API** | [Rick and Morty API](https://rickandmortyapi.com) — pública, gratuita, sem chave |
-| **Persistência** | Local (`shared_preferences`) |
-| **Login** | Local |
+| **Persistência** | Nuvem (Supabase — bônus RF06) |
+| **Login** | Autenticação real (Supabase Auth — bônus RF07) |
 | **Entrega** | 20/09/2026 |
 
 ## Como rodar
 
 ```bash
+cp lib/config/supabase_config.example.dart lib/config/supabase_config.dart
+# preencher a URL e a anon key do projeto guia-interdimensional (combinadas fora do git)
 flutter pub get
 flutter run
 ```
 
-Requer Flutter 3.44+ (Dart 3.12). Nenhuma chave de API ou arquivo de configuração é necessário — a Rick and Morty API é aberta.
+Requer Flutter 3.44+ (Dart 3.12). A Rick and Morty API é aberta, sem chave — mas o app agora depende do Supabase pra sessão e listas, então `lib/config/supabase_config.dart` é obrigatório e não é versionado (ver `.gitignore`).
 
-O login é local: qualquer usuário com senha de 4 caracteres ou mais abre a sessão.
+O login é real: cria-se conta com e-mail e senha, o Supabase manda um link de confirmação por e-mail, e só depois de confirmar dá pra entrar.
 
 ## Testes
 
 ```bash
 flutter analyze   # sem issues
-flutter test      # 20 testes
+flutter test      # 23 testes
 ```
 
-Os testes cobrem o parsing da API, os limites de paginação, os estados da tela de catálogo e o ciclo de vida das listas persistidas. Nenhum toca a rede: o `RickMortyService` recebe um `http.Client` injetado e as telas recebem o service pronto.
+Os testes cobrem o parsing da API, os limites de paginação, os estados da tela de catálogo e o ciclo de vida das listas na nuvem. Nenhum toca rede de verdade: `RickMortyService` recebe um `http.Client` injetado, e `AuthProvider`/`CharacterListProvider` recebem repositórios (`AuthRepository`/`CharacterListRepository`) com uma implementação fake em `test/support/fakes.dart` no lugar do Supabase real.
 
 ## Estrutura
 
 ```
 lib/
-  main.dart                    providers globais e o gate de sessão
+  main.dart                    Supabase.initialize, providers globais, gate de sessão
+  config/                      supabase_config — credenciais (gitignored) + template
   models/                      character · location · episode
-  services/                    rick_morty_service — todo o contato com a API
-  data/                        local_storage — shared_preferences
-  providers/                   auth · character_list (favoritos e vistos)
+  services/                    rick_morty_service — todo o contato com a API de personagens
+  data/                        auth_repository · character_list_repository (Supabase) · theme_storage (shared_preferences)
+  providers/                   auth · character_list (favoritos e vistos) · theme
   screens/                     login · catalog · character_detail · marked_list
-  widgets/                     character_card · character_search_field · loading_view · error_view
-  theme/                       app_theme — contraste, alvos de toque, escala de fonte
+  widgets/                     character_card · character_search_field · status_badge · loading_view · error_view
+  theme/                       app_theme — paleta clara/escura, contraste, alvos de toque, escala de fonte
 ```
 
-A separação segue as camadas: nenhuma tela conhece `http` ou `SharedPreferences` diretamente, e nenhum service conhece widgets.
+A separação segue as camadas: nenhuma tela conhece `http`, `SharedPreferences` ou o SDK do Supabase diretamente — só os `Repository`, o que também é o que permite testar sem rede (ver Testes acima).
 
 ## Requisitos funcionais
 
@@ -57,8 +60,8 @@ A separação segue as camadas: nenhuma tela conhece `http` ou `SharedPreference
 | RF03 — Detalhes com segunda requisição | Sim | `lib/screens/character_detail_screen.dart` |
 | RF04 — Favoritos com Provider | Sim | `lib/providers/character_list_provider.dart` |
 | RF05 — Tela de favoritos | Sim | `lib/screens/marked_list_screen.dart` |
-| RF06 — Persistência local | Sim | `lib/data/local_storage.dart` |
-| RF07 — Login e lista de vistos | Sim | `lib/providers/auth_provider.dart`, `lib/screens/login_screen.dart` |
+| RF06 — Persistência local **+ bônus nuvem** | Sim | `lib/data/character_list_repository.dart` |
+| RF07 — Login e lista de vistos **+ bônus autenticação real** | Sim | `lib/data/auth_repository.dart`, `lib/providers/auth_provider.dart`, `lib/screens/login_screen.dart` |
 | RF08 — Busca por nome | Sim | `lib/widgets/character_search_field.dart` |
 | RF09 — Feedback de UI | Sim | `lib/widgets/loading_view.dart`, `lib/widgets/error_view.dart` |
 | RF10 — Acessibilidade | Sim | `lib/theme/app_theme.dart` |
@@ -73,6 +76,23 @@ Quatro comportamentos da Rick and Morty API foram verificados por requisição r
 - **Personagens como o "Adjudicator Rick" têm origem sem URL.** A tela de detalhes reconhece isso e não tenta buscar o local.
 
 Como a API sempre devolve `image` preenchido, o placeholder de imagem exigido pelo RF01 é acionado pelo `errorBuilder` do `Image.network` — que é o caso que de fato acontece em produção: imagem que não carrega por falha de rede.
+
+## Supabase (bônus RF06/RF07)
+
+Projeto dedicado `guia-interdimensional` (região `sa-east-1`). Uma tabela cobre as duas listas, com o tipo como coluna:
+
+```sql
+create table character_list_entries (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  character_id integer not null,
+  list_type text not null check (list_type in ('favorite', 'watched')),
+  character jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, character_id, list_type)
+);
+```
+
+Row Level Security restringe select/insert/delete a `auth.uid() = user_id` — um usuário nunca lê ou escreve a lista de outro, mesmo com a anon key exposta no app. Confirmação de e-mail é o padrão de projeto Supabase hospedado, então o cadastro só abre sessão depois do usuário clicar no link recebido.
 
 ## Divisão do trabalho
 
