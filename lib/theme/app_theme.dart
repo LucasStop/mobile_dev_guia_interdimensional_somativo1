@@ -1,25 +1,69 @@
 import 'package:flutter/material.dart';
 
-/// Tema do app, com as decisões de acessibilidade centralizadas (RF10).
+/// Tema do app: a paleta da série em duas variantes, com as decisões de
+/// acessibilidade centralizadas (RF10).
 ///
-/// Três coisas ficam aqui em vez de espalhadas pelas telas: o contraste das
-/// cores, o tamanho mínimo dos alvos de toque e o teto do aumento de fonte.
+/// As cores originais de Rick and Morty são claras e saturadas — o verde do
+/// portal e o amarelo da camisa do Morty funcionam sobre fundo escuro, mas
+/// reprovam em contraste como texto sobre branco. Por isso a variante clara
+/// usa versões escurecidas das mesmas cores, em vez de repetir a paleta.
 class AppTheme {
-  /// Verde-ciano da série. Serve de semente para as duas variantes.
-  static const _seed = Color(0xFF00B5CC);
+  // Paleta da série.
+  static const portalGreen = Color(0xFF97CE4C); // verde do portal
+  static const mortyYellow = Color(0xFFF0E14A); // camisa do Morty
+  static const rickCyan = Color(0xFF24A0B5); // cabelo do Rick
+  static const spaceGraphite = Color(0xFF10131A); // fundo escuro
+  static const spaceSurface = Color(0xFF1B2029); // cards no escuro
 
-  /// `contrastLevel` acima do padrão empurra o Material 3 a gerar pares de
-  /// texto e fundo com separação maior, em vez de confiar no contraste
-  /// mínimo que a paleta padrão aceita.
+  // Versões escurecidas, para texto e ícones sobre fundo claro.
+  static const deepCyan = Color(0xFF1B7F94);
+  static const deepGreen = Color(0xFF5C8A2E);
+
+  /// Cores de status dos personagens, uma por variante do tema. São o par
+  /// escuro/claro da mesma ideia: verde para vivo, vermelho para morto,
+  /// neutro para desconhecido.
+  static Color aliveColor(Brightness b) =>
+      b == Brightness.dark ? portalGreen : deepGreen;
+
+  static Color deadColor(Brightness b) =>
+      b == Brightness.dark ? const Color(0xFFFF6B6B) : const Color(0xFFB3261E);
+
+  static Color unknownColor(Brightness b) =>
+      b == Brightness.dark ? const Color(0xFF9AA0A6) : const Color(0xFF5F6368);
+
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _seed,
-      brightness: brightness,
-      contrastLevel: 0.3,
-    );
+    final isDark = brightness == Brightness.dark;
+
+    final scheme = isDark
+        ? const ColorScheme.dark(
+            primary: portalGreen,
+            onPrimary: Color(0xFF10240A),
+            secondary: mortyYellow,
+            onSecondary: Color(0xFF241F00),
+            tertiary: rickCyan,
+            surface: spaceSurface,
+            onSurface: Color(0xFFE8EAED),
+            onSurfaceVariant: Color(0xFFB6BCC4),
+            surfaceContainerHighest: Color(0xFF262C36),
+            error: Color(0xFFFF8A80),
+            onError: Color(0xFF3A0A05),
+          )
+        : const ColorScheme.light(
+            primary: deepCyan,
+            onPrimary: Colors.white,
+            secondary: deepGreen,
+            onSecondary: Colors.white,
+            tertiary: Color(0xFF7A6A00),
+            surface: Colors.white,
+            onSurface: Color(0xFF14181C),
+            onSurfaceVariant: Color(0xFF44484D),
+            surfaceContainerHighest: Color(0xFFE4E8E2),
+            error: Color(0xFFB3261E),
+            onError: Colors.white,
+          );
 
     // 48dp é o alvo de toque mínimo recomendado para dedo; abaixo disso o
     // botão fica difícil de acertar, o que é o item de área de toque do RF10.
@@ -28,11 +72,38 @@ class AppTheme {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
+      scaffoldBackgroundColor: isDark ? spaceGraphite : const Color(0xFFF4F6F3),
+      appBarTheme: AppBarTheme(
+        backgroundColor: isDark ? spaceGraphite : const Color(0xFFF4F6F3),
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 2,
+        titleTextStyle: TextStyle(
+          color: scheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: scheme.surface,
+        elevation: isDark ? 0 : 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: isDark
+              ? BorderSide(color: scheme.surfaceContainerHighest)
+              : BorderSide.none,
+        ),
+      ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(minimumSize: minimumTarget),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(minimumSize: minimumTarget),
+        style: ElevatedButton.styleFrom(
+          minimumSize: minimumTarget,
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
+        ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(minimumSize: minimumTarget),
@@ -41,6 +112,9 @@ class AppTheme {
         style: IconButton.styleFrom(minimumSize: minimumTarget),
       ),
       listTileTheme: const ListTileThemeData(minVerticalPadding: 12),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(),
+      ),
     );
   }
 
