@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/character_list_provider.dart';
 import '../services/rick_morty_service.dart';
 import '../widgets/character_card.dart';
+import '../widgets/character_search_field.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_view.dart';
 import 'character_detail_screen.dart';
@@ -135,29 +136,36 @@ class _CatalogScreenState extends State<CatalogScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<void>(
-        future: _initialLoad,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingView(message: 'Carregando o catálogo...');
-          }
-          if (snapshot.hasError) {
-            return ErrorView(
-              message: snapshot.error is ApiException
-                  ? snapshot.error.toString()
-                  : 'Não foi possível carregar o catálogo.',
-              onRetry: _retryInitialLoad,
-            );
-          }
-          return _CatalogGrid(
-            characters: _characters,
-            hasNext: _hasNext,
-            isLoadingMore: _isLoadingMore,
-            loadMoreError: _loadMoreError,
-            onLoadMore: _loadMore,
-            onOpenDetail: _openDetail,
-          );
-        },
+      body: Column(
+        children: [
+          CharacterSearchField(service: _service, onFound: _openDetail),
+          Expanded(
+            child: FutureBuilder<void>(
+              future: _initialLoad,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const LoadingView(message: 'Carregando o catálogo...');
+                }
+                if (snapshot.hasError) {
+                  return ErrorView(
+                    message: snapshot.error is ApiException
+                        ? snapshot.error.toString()
+                        : 'Não foi possível carregar o catálogo.',
+                    onRetry: _retryInitialLoad,
+                  );
+                }
+                return _CatalogGrid(
+                  characters: _characters,
+                  hasNext: _hasNext,
+                  isLoadingMore: _isLoadingMore,
+                  loadMoreError: _loadMoreError,
+                  onLoadMore: _loadMore,
+                  onOpenDetail: _openDetail,
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
