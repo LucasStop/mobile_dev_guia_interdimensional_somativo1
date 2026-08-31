@@ -1,72 +1,104 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/local_storage.dart';
+import '../data/character_list_repository.dart';
 import '../models/character.dart';
 
 /// Estado compartilhado de uma lista de personagens marcada pelo usuário
 /// (RF04, RF06, RF07).
 ///
-/// Favoritos e Vistos têm exatamente o mesmo comportamento — alternar um
-/// personagem, consultar se está na lista, sobreviver ao fechamento do app — e
-/// diferem só em qual chave do armazenamento usam. A regra fica aqui e cada
-/// lista declara apenas a sua leitura e a sua escrita.
+/// Favoritos e Vistos têm exatamente o mesmo comportamento — carregar da
+/// nuvem, alternar um personagem, consultar se está na lista — e diferem só
+/// no `list_type` que o repositório usa. A regra fica aqui; cada lista só
+/// declara qual repositório é o seu.
 abstract class CharacterListProvider extends ChangeNotifier {
-  final LocalStorage storage;
-  final List<Character> _items;
+  final CharacterListRepository repository;
+  final List<Character> _items = [];
 
-  CharacterListProvider(this.storage) : _items = [] {
-    _items.addAll(readFromStorage());
-  }
+  bool _isLoading = false;
+  String? _error;
 
-  /// Cópia imutável: a lista só muda por `toggle`, nunca por quem a exibe.
+  CharacterListProvider(this.repository);
+
+  /// Cópia imutável: a lista só muda por `load`/`toggle`/`clear`, nunca por
+  /// quem a exibe.
   List<Character> get items => List.unmodifiable(_items);
 
   int get count => _items.length;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
-  bool contains(int characterId) =>
-      _items.any((c) => c.id == characterId);
+  bool contains(int characterId) => _items.any((c) => c.id == characterId);
 
-  /// Adiciona ou remove, grava em disco e avisa a interface — é o que faz a
-  /// tela de lista se atualizar sozinha quando o item é desmarcado na tela de
-  /// detalhes (RF05).
+  /// Busca a lista na nuvem. Chamado pelo gate de sessão assim que o login é
+  /// detectado — a leitura agora depende de rede, então não dá mais pra
+  /// carregar no construtor como na versão local.
+  Future<void> load() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final fetched = await repository.fetchAll();
+      _items
+        ..clear()
+        ..addAll(fetched);
+      _isLoading = false;
+      notifyListeners();
+    } catch (_) {
+      _isLoading = false;
+      _error = 'Não foi possível carregar sua lista. Verifique sua internet.';
+      notifyListeners();
+    }
+  }
+
+  /// Adiciona ou remove com atualização otimista: a UI muda na hora, e
+  /// desfaz sozinha se a chamada à nuvem falhar — sem isso, favoritar com a
+  /// rede instável pareceria travado até a resposta chegar.
   Future<void> toggle(Character character) async {
     final index = _items.indexWhere((c) => c.id == character.id);
-    if (index >= 0) {
+    final wasPresent = index >= 0;
+
+    if (wasPresent) {
       _items.removeAt(index);
     } else {
       _items.add(character);
     }
+    _error = null;
     notifyListeners();
-    await writeToStorage(_items);
+
+    try {
+      if (wasPresent) {
+        await repository.remove(character.id);
+      } else {
+        await repository.add(character);
+      }
+    } catch (_) {
+      if (wasPresent) {
+        _items.insert(index, character);
+      } else {
+        _items.removeWhere((c) => c.id == character.id);
+      }
+      _error = 'Não foi possível salvar. Verifique sua internet e tente de novo.';
+      notifyListeners();
+    }
   }
 
-  @protected
-  List<Character> readFromStorage();
-
-  @protected
-  Future<void> writeToStorage(List<Character> characters);
+  /// Esvazia a lista sem tocar a nuvem — usado no logout, pra não vazar dado
+  /// de uma conta pra outra na mesma instância do app.
+  void clear() {
+    _items.clear();
+    _error = null;
+    _isLoading = false;
+    notifyListeners();
+  }
 }
 
 /// RF04/RF05 — favoritos.
 class FavoritesProvider extends CharacterListProvider {
-  FavoritesProvider(super.storage);
-
-  @override
-  List<Character> readFromStorage() => storage.readFavorites();
-
-  @override
-  Future<void> writeToStorage(List<Character> characters) =>
-      storage.writeFavorites(characters);
+  FavoritesProvider(super.repository);
 }
 
 /// RF07 — personagens que o usuário já viu na série.
 class WatchedProvider extends CharacterListProvider {
-  WatchedProvider(super.storage);
-
-  @override
-  List<Character> readFromStorage() => storage.readWatched();
-
-  @override
-  Future<void> writeToStorage(List<Character> characters) =>
-      storage.writeWatched(characters);
+  WatchedProvider(super.repository);
 }

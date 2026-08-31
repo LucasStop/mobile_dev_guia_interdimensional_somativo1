@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/character.dart';
 import '../providers/character_list_provider.dart';
 import '../widgets/character_card.dart';
+import '../widgets/error_view.dart';
+import '../widgets/loading_view.dart';
 import 'character_detail_screen.dart';
 
 /// Grade de uma lista marcada pelo usuário (RF05 e RF07).
@@ -27,13 +29,23 @@ class MarkedListScreen<T extends CharacterListProvider> extends StatelessWidget 
     // `watch` é o que faz a grade se refazer sozinha quando o item é
     // desmarcado na tela de detalhes, sem nenhum retorno manual de valor pela
     // pilha de navegação (RF05).
-    final characters = context.watch<T>().items;
+    final provider = context.watch<T>();
+    final characters = provider.items;
+
+    Widget body;
+    if (provider.isLoading && characters.isEmpty) {
+      body = const LoadingView(message: 'Carregando sua lista...');
+    } else if (provider.error != null && characters.isEmpty) {
+      body = ErrorView(message: provider.error!, onRetry: () => provider.load());
+    } else if (characters.isEmpty) {
+      body = _EmptyState(icon: emptyIcon, message: emptyMessage);
+    } else {
+      body = _Grid(characters: characters);
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: characters.isEmpty
-          ? _EmptyState(icon: emptyIcon, message: emptyMessage)
-          : _Grid(characters: characters),
+      body: body,
     );
   }
 }

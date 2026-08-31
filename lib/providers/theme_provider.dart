@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../data/local_storage.dart';
+import '../data/theme_storage.dart';
 
 /// Preferência de tema, persistida junto com o resto dos dados do app.
 ///
 /// O padrão é seguir o sistema; o alternador da barra superior grava uma
 /// escolha explícita, que sobrevive ao fechamento do app.
 class ThemeProvider extends ChangeNotifier {
-  final LocalStorage _storage;
+  final ThemeStorage _storage;
   ThemeMode _mode;
 
   ThemeProvider(this._storage) : _mode = _parse(_storage.themeMode);
