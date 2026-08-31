@@ -56,6 +56,21 @@ class Character {
     );
   }
 
+  /// Espelha o formato da própria API, para que `fromJson` sirva tanto para a
+  /// resposta da rede quanto para o que foi salvo em disco (RF06) — um parser
+  /// só, sem formato paralelo de persistência.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'status': status,
+        'species': species,
+        'gender': gender,
+        'image': imageUrl,
+        'origin': {'name': originName, 'url': originUrl ?? ''},
+        'location': {'name': lastKnownLocation},
+        'episode': episodeUrls,
+      };
+
   /// Rótulo em português para a UI e para o leitor de tela (RF10).
   String get statusLabel => switch (status.toLowerCase()) {
         'alive' => 'Vivo',
