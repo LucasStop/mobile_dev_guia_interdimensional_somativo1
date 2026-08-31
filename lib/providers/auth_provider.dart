@@ -1,61 +1,111 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../data/local_storage.dart';
+import '../data/auth_repository.dart';
 
-/// Estado de sessão do app (RF07).
-///
-/// O login é local e proposital: o enunciado pede navegação condicional e
-/// gestão de sessão, não autenticação contra servidor. As credenciais ficam
-/// em `shared_preferences` — em um app real isso exigiria hash e um backend,
-/// e é exatamente o que o bônus de autenticação real substituiria.
+/// Estado de sessão do app (RF07 — autenticação real via Supabase Auth).
 class AuthProvider extends ChangeNotifier {
-  final LocalStorage _storage;
+  final AuthRepository _repository;
+  late final StreamSubscription<bool> _authSubscription;
 
-  String? _user;
   bool _isSubmitting = false;
   String? _errorMessage;
+  bool _awaitingEmailConfirmation = false;
 
-  AuthProvider(this._storage) : _user = _storage.sessionUser;
+  AuthProvider(this._repository) {
+    // A sessão pode mudar por fora de um `signIn` explícito — token
+    // expirando, refresh automático do pacote — então a UI escuta o stream
+    // em vez de só confiar no retorno das próprias chamadas.
+    _authSubscription = _repository.authStateChanges.listen((_) {
+      notifyListeners();
+    });
+  }
 
-  String? get user => _user;
-  bool get isLoggedIn => _user != null;
+  bool get isLoggedIn => _repository.isLoggedIn;
+  String? get userEmail => _repository.userEmail;
   bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
+  bool get awaitingEmailConfirmation => _awaitingEmailConfirmation;
 
-  /// Valida os campos e abre a sessão. O atraso curto existe para que o
-  /// `CircularProgressIndicator` do RF09 seja visível no login, que de outro
-  /// modo resolveria instantaneamente.
-  Future<bool> login(String user, String password) async {
-    final trimmed = user.trim();
+  Future<void> signUp(String email, String password, String confirmPassword) async {
+    final trimmedEmail = email.trim();
 
-    if (trimmed.isEmpty || password.isEmpty) {
-      _errorMessage = 'Preencha usuário e senha.';
-      notifyListeners();
-      return false;
+    if (trimmedEmail.isEmpty || password.isEmpty) {
+      _fail('Preencha e-mail e senha.');
+      return;
     }
-    if (password.length < 4) {
-      _errorMessage = 'A senha precisa ter pelo menos 4 caracteres.';
-      notifyListeners();
-      return false;
+    if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
+      _fail('Digite um e-mail válido.');
+      return;
+    }
+    if (password.length < 6) {
+      _fail('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (password != confirmPassword) {
+      _fail('As senhas não coincidem.');
+      return;
     }
 
+    _startSubmitting();
+    try {
+      final result = await _repository.signUp(trimmedEmail, password);
+      _isSubmitting = false;
+      _awaitingEmailConfirmation =
+          result.outcome == SignUpOutcome.awaitingEmailConfirmation;
+      notifyListeners();
+    } on AuthFailure catch (e) {
+      _fail(e.message);
+    }
+  }
+
+  Future<void> signIn(String email, String password) async {
+    final trimmedEmail = email.trim();
+
+    if (trimmedEmail.isEmpty || password.isEmpty) {
+      _fail('Preencha e-mail e senha.');
+      return;
+    }
+
+    _startSubmitting();
+    try {
+      await _repository.signIn(trimmedEmail, password);
+      _isSubmitting = false;
+      notifyListeners();
+    } on AuthFailure catch (e) {
+      _fail(e.message);
+    }
+  }
+
+  Future<void> signOut() async {
+    await _repository.signOut();
+    _errorMessage = null;
+    _awaitingEmailConfirmation = false;
+    notifyListeners();
+  }
+
+  /// Volta da tela "verifique seu e-mail" pro formulário de entrar.
+  void dismissEmailConfirmationNotice() {
+    _awaitingEmailConfirmation = false;
+    notifyListeners();
+  }
+
+  void _startSubmitting() {
     _isSubmitting = true;
     _errorMessage = null;
     notifyListeners();
-
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    await _storage.saveSession(trimmed);
-
-    _user = trimmed;
-    _isSubmitting = false;
-    notifyListeners();
-    return true;
   }
 
-  Future<void> logout() async {
-    await _storage.clearSession();
-    _user = null;
-    _errorMessage = null;
+  void _fail(String message) {
+    _isSubmitting = false;
+    _errorMessage = message;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 }
