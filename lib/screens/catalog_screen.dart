@@ -14,14 +14,18 @@ import 'marked_list_screen.dart';
 
 /// Tela principal (RF01): grade paginada de personagens.
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({super.key});
+  /// Injetável para que os testes possam rodar a tela contra respostas
+  /// controladas, sem tocar a rede.
+  final RickMortyService? service;
+
+  const CatalogScreen({super.key, this.service});
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  final _service = RickMortyService();
+  late final RickMortyService _service = widget.service ?? RickMortyService();
 
   /// Lista acumulada: "Carregar Mais" acrescenta à grade em vez de trocá-la.
   final List<Character> _characters = [];
