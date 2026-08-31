@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/character.dart';
 import '../providers/auth_provider.dart';
 import '../providers/character_list_provider.dart';
+import '../providers/theme_provider.dart';
 import '../services/rick_morty_service.dart';
 import '../widgets/character_card.dart';
 import '../widgets/character_search_field.dart';
@@ -133,6 +134,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   'Abra um personagem e toque na estrela.',
             ),
           ),
+          const _ThemeToggleButton(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair da conta',
@@ -204,6 +206,23 @@ class _ListShortcut<T extends CharacterListProvider> extends StatelessWidget {
       onPressed: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => destination),
       ),
+    );
+  }
+}
+
+/// Alterna entre o tema claro e o escuro da série (opcional dark mode, RF10).
+class _ThemeToggleButton extends StatelessWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.isDark(context);
+
+    return IconButton(
+      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+      tooltip: isDark ? 'Ativar tema claro' : 'Ativar tema escuro',
+      onPressed: () => context.read<ThemeProvider>().toggle(context),
     );
   }
 }
