@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:mobile_dev_guia_interdimensional_somativo1/data/local_storage.dart';
+import 'package:mobile_dev_guia_interdimensional_somativo1/data/theme_storage.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/auth_provider.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/character_list_provider.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/theme_provider.dart';
@@ -14,6 +14,8 @@ import 'package:mobile_dev_guia_interdimensional_somativo1/widgets/character_car
 import 'package:mobile_dev_guia_interdimensional_somativo1/widgets/error_view.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/fakes.dart';
 
 /// Testes da tela principal (RF01, RF09).
 void main() {
@@ -38,15 +40,19 @@ void main() {
     required Future<http.Response> Function(http.Request) respond,
   }) async {
     SharedPreferences.setMockInitialValues({});
-    final storage = await LocalStorage.open();
+    final storage = await ThemeStorage.open();
     final service = RickMortyService(client: MockClient(respond));
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => AuthProvider(storage)),
-          ChangeNotifierProvider(create: (_) => FavoritesProvider(storage)),
-          ChangeNotifierProvider(create: (_) => WatchedProvider(storage)),
+          ChangeNotifierProvider(create: (_) => AuthProvider(FakeAuthRepository())),
+          ChangeNotifierProvider(
+            create: (_) => FavoritesProvider(FakeCharacterListRepository()),
+          ),
+          ChangeNotifierProvider(
+            create: (_) => WatchedProvider(FakeCharacterListRepository()),
+          ),
           ChangeNotifierProvider(create: (_) => ThemeProvider(storage)),
         ],
         child: MaterialApp(home: CatalogScreen(service: service)),
