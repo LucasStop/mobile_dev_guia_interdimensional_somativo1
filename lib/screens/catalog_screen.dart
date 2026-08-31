@@ -138,7 +138,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair da conta',
-            onPressed: () => context.read<AuthProvider>().logout(),
+            onPressed: () => context.read<AuthProvider>().signOut(),
           ),
         ],
       ),
