@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../models/character.dart';
 import '../providers/auth_provider.dart';
+import '../providers/character_list_provider.dart';
 import '../services/rick_morty_service.dart';
 import '../widgets/character_card.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_view.dart';
 import 'character_detail_screen.dart';
+import 'marked_list_screen.dart';
 
 /// Tela principal (RF01): grade paginada de personagens.
 class CatalogScreen extends StatefulWidget {
@@ -104,6 +106,28 @@ class _CatalogScreenState extends State<CatalogScreen> {
       appBar: AppBar(
         title: const Text('Guia Interdimensional'),
         actions: [
+          _ListShortcut<WatchedProvider>(
+            icon: Icons.visibility_outlined,
+            label: 'Vistos',
+            destination: const MarkedListScreen<WatchedProvider>(
+              title: 'Vistos',
+              emptyIcon: Icons.visibility_off_outlined,
+              emptyMessage:
+                  'Você ainda não marcou nenhum personagem como visto.\n'
+                  'Abra um personagem e toque no ícone de olho.',
+            ),
+          ),
+          _ListShortcut<FavoritesProvider>(
+            icon: Icons.star_border,
+            label: 'Favoritos',
+            destination: const MarkedListScreen<FavoritesProvider>(
+              title: 'Favoritos',
+              emptyIcon: Icons.star_border,
+              emptyMessage:
+                  'Você ainda não favoritou nenhum personagem.\n'
+                  'Abra um personagem e toque na estrela.',
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair da conta',
@@ -134,6 +158,39 @@ class _CatalogScreenState extends State<CatalogScreen> {
             onOpenDetail: _openDetail,
           );
         },
+      ),
+    );
+  }
+}
+
+/// Atalho da barra superior para uma lista marcada, com a contagem atual
+/// (RF05). A contagem vem do provider, então sobe e desce junto com o que o
+/// usuário marca na tela de detalhes.
+class _ListShortcut<T extends CharacterListProvider> extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Widget destination;
+
+  const _ListShortcut({
+    required this.icon,
+    required this.label,
+    required this.destination,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final count = context.select<T, int>((provider) => provider.count);
+
+    return IconButton(
+      tooltip: label,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        child: Icon(icon),
+      ),
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => destination),
       ),
     );
   }
