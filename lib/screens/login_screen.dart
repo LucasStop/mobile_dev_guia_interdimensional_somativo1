@@ -4,6 +4,11 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
 /// Porta de entrada do app (RF07): sem sessão aberta, o catálogo não aparece.
+///
+/// Autenticação real via Supabase Auth — três estados possíveis: formulário
+/// de entrar, formulário de cadastrar, ou aviso de "verifique seu e-mail"
+/// depois de um cadastro (a confirmação é obrigatória, então o cadastro nunca
+/// abre sessão na hora).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -12,26 +17,91 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _userController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isSignUp = false;
 
   @override
   void dispose() {
-    _userController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final auth = context.read<AuthProvider>();
-    await auth.login(_userController.text, _passwordController.text);
-    // A troca de tela é feita pelo gate em main.dart, que observa o
-    // AuthProvider — nenhuma navegação manual é necessária aqui.
+    if (_isSignUp) {
+      await auth.signUp(
+        _emailController.text,
+        _passwordController.text,
+        _confirmPasswordController.text,
+      );
+    } else {
+      await auth.signIn(_emailController.text, _passwordController.text);
+    }
+    // Login bem-sucedido troca de tela sozinho: o gate em main.dart observa
+    // o AuthProvider. Cadastro que exige confirmação fica na mesma tela, só
+    // muda pro aviso de e-mail — ver build() abaixo.
+  }
+
+  void _toggleMode() {
+    setState(() => _isSignUp = !_isSignUp);
+    context.read<AuthProvider>().dismissEmailConfirmationNotice();
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+
+    if (auth.awaitingEmailConfirmation) {
+      return _EmailConfirmationNotice(
+        email: _emailController.text.trim(),
+        onBackToLogin: () {
+          setState(() => _isSignUp = false);
+          auth.dismissEmailConfirmationNotice();
+        },
+      );
+    }
+
+    return _AuthForm(
+      isSignUp: _isSignUp,
+      emailController: _emailController,
+      passwordController: _passwordController,
+      confirmPasswordController: _confirmPasswordController,
+      isSubmitting: auth.isSubmitting,
+      errorMessage: auth.errorMessage,
+      onSubmit: _submit,
+      onToggleMode: _toggleMode,
+    );
+  }
+}
+
+class _AuthForm extends StatelessWidget {
+  final bool isSignUp;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final bool isSubmitting;
+  final String? errorMessage;
+  final VoidCallback onSubmit;
+  final VoidCallback onToggleMode;
+
+  const _AuthForm({
+    required this.isSignUp,
+    required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.isSubmitting,
+    required this.errorMessage,
+    required this.onSubmit,
+    required this.onToggleMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -57,61 +127,166 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Entre para explorar o catálogo de personagens.',
+                    isSignUp
+                        ? 'Crie sua conta para explorar o catálogo de personagens.'
+                        : 'Entre para explorar o catálogo de personagens.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 32),
                   TextField(
-                    controller: _userController,
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.username],
+                    autofillHints: const [AutofillHints.email],
                     decoration: const InputDecoration(
-                      labelText: 'Usuário *',
+                      labelText: 'E-mail *',
                       helperText: 'Campo obrigatório',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: Icon(Icons.mail_outline),
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
-                    controller: _passwordController,
+                    controller: passwordController,
                     obscureText: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
+                    textInputAction:
+                        isSignUp ? TextInputAction.next : TextInputAction.done,
+                    onSubmitted: isSignUp ? null : (_) => onSubmit(),
                     decoration: const InputDecoration(
                       labelText: 'Senha *',
-                      helperText: 'Mínimo de 4 caracteres',
+                      helperText: 'Mínimo de 6 caracteres',
                       prefixIcon: Icon(Icons.lock_outline),
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  if (auth.errorMessage != null) ...[
+                  if (isSignUp) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      auth.errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.error,
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => onSubmit(),
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmar senha *',
+                        prefixIcon: Icon(Icons.lock_outline),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
                       ),
                     ),
                   ],
                   const SizedBox(height: 24),
-                  // RF09: o botão vira indicador de progresso enquanto o login
-                  // está em andamento, e fica desabilitado para evitar
-                  // submissão dupla.
+                  // RF09: o botão vira indicador de progresso enquanto a
+                  // chamada ao Supabase está em andamento, e fica desabilitado
+                  // pra evitar submissão dupla.
                   FilledButton(
-                    onPressed: auth.isSubmitting ? null : _submit,
+                    onPressed: isSubmitting ? null : onSubmit,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                     ),
-                    child: auth.isSubmitting
+                    child: isSubmitting
                         ? const SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(strokeWidth: 2.5),
                           )
-                        : const Text('Entrar'),
+                        : Text(isSignUp ? 'Criar conta' : 'Entrar'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: isSubmitting ? null : onToggleMode,
+                    child: Text(
+                      isSignUp
+                          ? 'Já tem conta? Entrar'
+                          : 'Não tem conta? Cadastre-se',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Estado pós-cadastro: a conta existe no Supabase, mas a sessão só abre
+/// depois de o usuário confirmar o e-mail pelo link recebido — isso não dá
+/// pra automatizar de dentro do app.
+class _EmailConfirmationNotice extends StatelessWidget {
+  final String email;
+  final VoidCallback onBackToLogin;
+
+  const _EmailConfirmationNotice({
+    required this.email,
+    required this.onBackToLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.mark_email_unread_outlined,
+                    size: 64,
+                    color: theme.colorScheme.primary,
+                    semanticLabel: 'Confirmação de e-mail pendente',
+                  ),
+                  const SizedBox(height: 16),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'Verifique seu e-mail',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    email.isEmpty
+                        ? 'Mandamos um link de confirmação pro e-mail que você cadastrou.'
+                        : 'Mandamos um link de confirmação para $email.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Toque no link, depois volte aqui e entre normalmente.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: onBackToLogin,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                    ),
+                    child: const Text('Já confirmei, entrar'),
                   ),
                 ],
               ),
