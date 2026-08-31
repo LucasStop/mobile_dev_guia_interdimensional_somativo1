@@ -1,13 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_dev_guia_interdimensional_somativo1/data/local_storage.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/models/character.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/character_list_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Testes do estado global e da persistência (RF04, RF05, RF06, RF07).
+import 'support/fakes.dart';
+
+/// Testes do estado global e da sincronização com a nuvem (RF04, RF05, RF06,
+/// RF07).
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   const rick = Character(
     id: 1,
     name: 'Rick Sanchez',
@@ -34,27 +33,48 @@ void main() {
     episodeUrls: [],
   );
 
-  Future<LocalStorage> emptyStorage() async {
-    SharedPreferences.setMockInitialValues({});
-    return LocalStorage.open();
-  }
+  test('load popula a lista a partir do repositório', () async {
+    final favorites = FavoritesProvider(
+      FakeCharacterListRepository(seed: [rick, morty]),
+    );
 
-  test('toggle adiciona e remove o personagem', () async {
-    final favorites = FavoritesProvider(await emptyStorage());
+    expect(favorites.count, 0);
+    await favorites.load();
+
+    expect(favorites.count, 2);
+    expect(favorites.contains(rick.id), isTrue);
+    expect(favorites.isLoading, isFalse);
+  });
+
+  test('toggle adiciona e remove, refletindo no repositório', () async {
+    final repository = FakeCharacterListRepository();
+    final favorites = FavoritesProvider(repository);
 
     expect(favorites.contains(rick.id), isFalse);
 
     await favorites.toggle(rick);
     expect(favorites.contains(rick.id), isTrue);
-    expect(favorites.count, 1);
+    expect((await repository.fetchAll()).map((c) => c.id), [rick.id]);
 
     await favorites.toggle(rick);
     expect(favorites.contains(rick.id), isFalse);
-    expect(favorites.count, 0);
+    expect(await repository.fetchAll(), isEmpty);
+  });
+
+  test('toggle é otimista mas desfaz sozinho se o repositório falhar', () async {
+    final repository = FakeCharacterListRepository(failNextWrite: true);
+    final favorites = FavoritesProvider(repository);
+
+    await favorites.toggle(rick);
+
+    // A UI já tinha mostrado o favorito marcado (update otimista); depois da
+    // falha, volta pro estado real e avisa o motivo.
+    expect(favorites.contains(rick.id), isFalse);
+    expect(favorites.error, isNotNull);
   });
 
   test('notifica os ouvintes a cada mudança', () async {
-    final favorites = FavoritesProvider(await emptyStorage());
+    final favorites = FavoritesProvider(FakeCharacterListRepository());
     var notifications = 0;
     favorites.addListener(() => notifications++);
 
@@ -65,38 +85,20 @@ void main() {
     expect(notifications, 3);
   });
 
-  test('a lista sobrevive ao fechamento do app', () async {
-    final storage = await emptyStorage();
-    final favorites = FavoritesProvider(storage);
+  test('clear esvazia a lista sem tocar o repositório', () async {
+    final repository = FakeCharacterListRepository(seed: [rick]);
+    final favorites = FavoritesProvider(repository);
+    await favorites.load();
 
-    await favorites.toggle(rick);
-    await favorites.toggle(morty);
+    favorites.clear();
 
-    // Um provider novo sobre o mesmo armazenamento é o que acontece no
-    // próximo boot do app.
-    final reopened = FavoritesProvider(await LocalStorage.open());
-
-    expect(reopened.count, 2);
-    expect(reopened.contains(rick.id), isTrue);
-    expect(reopened.items.first.name, 'Rick Sanchez');
+    expect(favorites.count, 0);
+    expect(await repository.fetchAll(), hasLength(1));
   });
 
-  test('a origem desconhecida sobrevive à ida e volta do disco', () async {
-    // Personagens como o "Adjudicator Rick" vêm da API sem URL de origem;
-    // isso precisa continuar nulo depois de salvo e lido.
-    final storage = await emptyStorage();
-    await FavoritesProvider(storage).toggle(morty);
-
-    final reopened = FavoritesProvider(await LocalStorage.open());
-
-    expect(reopened.items.single.hasKnownOrigin, isFalse);
-    expect(reopened.items.single.originUrl, isNull);
-  });
-
-  test('favoritos e vistos são listas independentes', () async {
-    final storage = await emptyStorage();
-    final favorites = FavoritesProvider(storage);
-    final watched = WatchedProvider(storage);
+  test('favoritos e vistos são repositórios independentes', () async {
+    final favorites = FavoritesProvider(FakeCharacterListRepository());
+    final watched = WatchedProvider(FakeCharacterListRepository());
 
     await favorites.toggle(rick);
 
@@ -104,8 +106,21 @@ void main() {
     expect(watched.contains(rick.id), isFalse);
   });
 
+  test('a origem desconhecida sobrevive à ida e volta do repositório', () async {
+    // Personagens como o "Adjudicator Rick" vêm da API sem URL de origem;
+    // isso precisa continuar nulo depois de ir e voltar do repositório.
+    final repository = FakeCharacterListRepository();
+    await FavoritesProvider(repository).toggle(morty);
+
+    final reopened = FavoritesProvider(repository);
+    await reopened.load();
+
+    expect(reopened.items.single.hasKnownOrigin, isFalse);
+    expect(reopened.items.single.originUrl, isNull);
+  });
+
   test('items não pode ser alterada por fora do provider', () async {
-    final favorites = FavoritesProvider(await emptyStorage());
+    final favorites = FavoritesProvider(FakeCharacterListRepository());
     await favorites.toggle(rick);
 
     expect(() => favorites.items.add(morty), throwsUnsupportedError);
