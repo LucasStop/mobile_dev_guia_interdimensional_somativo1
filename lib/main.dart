@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'data/local_storage.dart';
 import 'providers/auth_provider.dart';
+import 'providers/character_list_provider.dart';
 import 'screens/catalog_screen.dart';
 import 'screens/login_screen.dart';
 
@@ -22,6 +23,8 @@ class GuiaInterdimensionalApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider(storage)),
+        ChangeNotifierProvider(create: (_) => FavoritesProvider(storage)),
+        ChangeNotifierProvider(create: (_) => WatchedProvider(storage)),
       ],
       child: MaterialApp(
         title: 'Guia Interdimensional',
