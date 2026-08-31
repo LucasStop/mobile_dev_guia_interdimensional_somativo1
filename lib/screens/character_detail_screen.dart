@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/character.dart';
 import '../models/episode.dart';
 import '../models/location.dart';
+import '../providers/character_list_provider.dart';
 import '../services/rick_morty_service.dart';
 import '../widgets/error_view.dart';
 import '../widgets/loading_view.dart';
@@ -73,7 +75,25 @@ class _CharacterDetailScreenState extends State<CharacterDetailScreen> {
     final character = widget.character;
 
     return Scaffold(
-      appBar: AppBar(title: Text(character.name)),
+      appBar: AppBar(
+        title: Text(character.name),
+        actions: [
+          _MarkAction<WatchedProvider>(
+            character: character,
+            markedIcon: Icons.visibility,
+            unmarkedIcon: Icons.visibility_outlined,
+            markedLabel: 'Remover dos vistos',
+            unmarkedLabel: 'Marcar como visto',
+          ),
+          _MarkAction<FavoritesProvider>(
+            character: character,
+            markedIcon: Icons.star,
+            unmarkedIcon: Icons.star_border,
+            markedLabel: 'Remover dos favoritos',
+            unmarkedLabel: 'Adicionar aos favoritos',
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
@@ -142,6 +162,41 @@ class _CharacterDetailScreenState extends State<CharacterDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Botão de marcar/desmarcar da barra superior (RF04 e RF07).
+///
+/// O ícone e o texto lido pelo leitor de tela mudam junto com o estado, então
+/// quem usa TalkBack sabe se o personagem já está na lista antes de tocar.
+class _MarkAction<T extends CharacterListProvider> extends StatelessWidget {
+  final Character character;
+  final IconData markedIcon;
+  final IconData unmarkedIcon;
+  final String markedLabel;
+  final String unmarkedLabel;
+
+  const _MarkAction({
+    required this.character,
+    required this.markedIcon,
+    required this.unmarkedIcon,
+    required this.markedLabel,
+    required this.unmarkedLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<T>();
+    final isMarked = provider.contains(character.id);
+    final label = isMarked ? markedLabel : unmarkedLabel;
+
+    return IconButton(
+      icon: Icon(isMarked ? markedIcon : unmarkedIcon),
+      tooltip: label,
+      onPressed: () => context.read<T>().toggle(character),
+      // Alvo de toque de 48dp, o mínimo confortável para dedo (RF10).
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
     );
   }
 }
