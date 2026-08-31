@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/character.dart';
+import 'status_badge.dart';
 
 /// Célula da grade do catálogo (RF01): imagem, nome e status.
 class CharacterCard extends StatelessWidget {
@@ -31,29 +32,31 @@ class CharacterCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: _CharacterImage(url: character.imageUrl)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    Text(
-                      character.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      character.statusLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
+                    _CharacterImage(url: character.imageUrl),
+                    // O status vira cor sobre a imagem: na grade dá para
+                    // varrer a lista inteira sem ler texto nenhum, e o nome
+                    // ganha as duas linhas do rodapé só para ele.
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: StatusBadge(character: character),
                     ),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Text(
+                  character.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

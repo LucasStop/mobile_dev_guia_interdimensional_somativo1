@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/data/local_storage.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/auth_provider.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/providers/character_list_provider.dart';
+import 'package:mobile_dev_guia_interdimensional_somativo1/providers/theme_provider.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/screens/catalog_screen.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/services/rick_morty_service.dart';
 import 'package:mobile_dev_guia_interdimensional_somativo1/widgets/character_card.dart';
@@ -46,6 +47,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => AuthProvider(storage)),
           ChangeNotifierProvider(create: (_) => FavoritesProvider(storage)),
           ChangeNotifierProvider(create: (_) => WatchedProvider(storage)),
+          ChangeNotifierProvider(create: (_) => ThemeProvider(storage)),
         ],
         child: MaterialApp(home: CatalogScreen(service: service)),
       ),
