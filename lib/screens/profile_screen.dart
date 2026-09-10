@@ -51,70 +51,173 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
+    final email = auth.userEmail ?? '';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Perfil')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.account_circle_outlined,
-                    size: 72,
-                    color: theme.colorScheme.primary,
-                    semanticLabel: 'Perfil',
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    auth.userEmail ?? '',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 32),
-                  OutlinedButton.icon(
-                    onPressed: () => _signOut(context),
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Sair da conta'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(52),
+      body: Column(
+        children: [
+          _ProfileHeader(email: email),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ProfileInfoRow(
+                      icon: Icons.mail_outline,
+                      label: 'E-mail',
+                      value: email,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (auth.errorMessage != null) ...[
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        auth.errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
+                    const Divider(height: 32),
+                    OutlinedButton.icon(
+                      onPressed: () => _signOut(context),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Sair da conta'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
                       ),
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  TextButton(
-                    onPressed: auth.isSubmitting
-                        ? null
-                        : () => _confirmDeleteAccount(context),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                      minimumSize: const Size.fromHeight(48),
+                    if (auth.errorMessage != null) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          auth.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextButton(
+                      onPressed: auth.isSubmitting
+                          ? null
+                          : () => _confirmDeleteAccount(context),
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      child: const Text('Excluir minha conta'),
                     ),
-                    child: const Text('Excluir minha conta'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cabeçalho em gradiente com avatar e e-mail, no lugar da AppBar padrão —
+/// mesma régua visual do menu lateral (`_DrawerHeader` em `catalog_screen`).
+class _ProfileHeader extends StatelessWidget {
+  final String email;
+
+  const _ProfileHeader({required this.email});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primary, scheme.secondary],
+        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(Icons.arrow_back, color: scheme.onPrimary),
+                ),
+                Expanded(
+                  child: Text(
+                    'Perfil',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: scheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              email,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: scheme.onPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ProfileInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Icon(icon, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
