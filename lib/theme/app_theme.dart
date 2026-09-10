@@ -1,3 +1,4 @@
+import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 
 /// Tema do app: a paleta da série em duas variantes, com as decisões de
@@ -69,10 +70,19 @@ class AppTheme {
     // botão fica difícil de acertar, o que é o item de área de toque do RF10.
     const minimumTarget = Size(48, 48);
 
-    return ThemeData(
+    // flex_color_scheme entra só pelo polimento de subtema (diálogo, switch,
+    // slider, snackbar, etc.) — o ColorScheme continua sendo o mesmo definido
+    // acima, com o mesmo racional de contraste. Os widgets que já tinham
+    // ajuste manual (AppBar, Card, botões, input) são reafirmados abaixo por
+    // cima do resultado, pra não perder nada do que já foi calibrado.
+    final flexTheme = FlexColorScheme(
       colorScheme: scheme,
-      useMaterial3: true,
-      scaffoldBackgroundColor: isDark ? spaceGraphite : const Color(0xFFF4F6F3),
+      brightness: brightness,
+      scaffoldBackground: isDark ? spaceGraphite : const Color(0xFFF4F6F3),
+      subThemesData: const FlexSubThemesData(),
+    ).toTheme;
+
+    return flexTheme.copyWith(
       appBarTheme: AppBarTheme(
         backgroundColor: isDark ? spaceGraphite : const Color(0xFFF4F6F3),
         foregroundColor: scheme.onSurface,
