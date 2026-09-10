@@ -35,7 +35,8 @@ class SupabaseCharacterListRepository implements CharacterListRepository {
     final rows = await _client
         .from('character_list_entries')
         .select('character')
-        .eq('list_type', _listType);
+        .eq('list_type', _listType)
+        .eq('user_id', _userId);
 
     return rows
         .map((row) => Character.fromJson(row['character'] as Map<String, dynamic>))
@@ -58,6 +59,7 @@ class SupabaseCharacterListRepository implements CharacterListRepository {
         .from('character_list_entries')
         .delete()
         .eq('character_id', characterId)
-        .eq('list_type', _listType);
+        .eq('list_type', _listType)
+        .eq('user_id', _userId);
   }
 }
