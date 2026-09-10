@@ -7,6 +7,32 @@ import '../providers/auth_provider.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir sua conta?'),
+        content: const Text(
+          'Isso apaga sua conta e seus dados permanentemente. Não dá pra desfazer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await context.read<AuthProvider>().deleteAccount();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -45,7 +71,30 @@ class ProfileScreen extends StatelessWidget {
                       minimumSize: const Size.fromHeight(52),
                     ),
                   ),
-                  // Exclusão de conta entra aqui.
+                  const SizedBox(height: 12),
+                  if (auth.errorMessage != null) ...[
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        auth.errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  TextButton(
+                    onPressed: auth.isSubmitting
+                        ? null
+                        : () => _confirmDeleteAccount(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('Excluir minha conta'),
+                  ),
                 ],
               ),
             ),

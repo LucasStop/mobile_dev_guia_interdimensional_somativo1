@@ -66,6 +66,11 @@ abstract class AuthRepository {
   /// Manda o e-mail de redefinição de senha do Supabase Auth. A troca de
   /// senha em si acontece fora do app, pelo link recebido.
   Future<void> sendPasswordResetEmail(String email);
+
+  /// Apaga a conta da pessoa logada. O client não tem privilégio pra isso
+  /// diretamente — a Edge Function `delete-account` faz a exclusão de fato
+  /// com a service_role key.
+  Future<void> deleteAccount();
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -121,6 +126,19 @@ class SupabaseAuthRepository implements AuthRepository {
     } on supabase.AuthException catch (e) {
       throw AuthFailure(_translate(e));
     }
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _client.functions.invoke('delete-account');
+    } on supabase.FunctionException catch (e) {
+      developer.log('Erro ao excluir conta: ${e.details}', name: 'AuthRepository');
+      throw const AuthFailure(
+        'Não foi possível excluir sua conta. Tente novamente em instantes.',
+      );
+    }
+    await _client.auth.signOut();
   }
 
   String _translate(supabase.AuthException e) => translateAuthErrorMessage(e.message);

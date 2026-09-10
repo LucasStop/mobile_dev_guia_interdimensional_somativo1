@@ -35,4 +35,14 @@ void main() {
       expect(repository.lastPasswordResetEmail, 'user@example.com');
     });
   });
+
+  group('deleteAccount', () {
+    test('desloga o usuário', () async {
+      expect(provider.isLoggedIn, isTrue);
+
+      await provider.deleteAccount();
+
+      expect(provider.isLoggedIn, isFalse);
+    });
+  });
 }
