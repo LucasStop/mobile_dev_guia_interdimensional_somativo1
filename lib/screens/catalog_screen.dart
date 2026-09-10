@@ -44,16 +44,40 @@ class _CatalogScreenState extends State<CatalogScreen> {
   bool _isLoadingMore = false;
   String? _loadMoreError;
 
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _initialLoad = _loadFirstPage();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _service.dispose();
     super.dispose();
+  }
+
+  /// Dispara a próxima página perto do fim da rolagem, em vez de esperar um
+  /// toque em "Carregar Mais". `_loadMore` já se protege contra chamada
+  /// dupla e contra pedir página depois da última.
+  void _onScroll() {
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 300) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _refresh() async {
+    try {
+      await _loadFirstPage();
+    } on ApiException {
+      // Conteúdo antigo continua na tela; só a "puxada" some.
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadFirstPage() async {
@@ -183,13 +207,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     onRetry: _retryInitialLoad,
                   );
                 }
-                return _CatalogGrid(
-                  characters: _characters,
-                  hasNext: _hasNext,
-                  isLoadingMore: _isLoadingMore,
-                  loadMoreError: _loadMoreError,
-                  onLoadMore: _loadMore,
-                  onOpenDetail: _openDetail,
+                return RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: _CatalogGrid(
+                    controller: _scrollController,
+                    characters: _characters,
+                    hasNext: _hasNext,
+                    isLoadingMore: _isLoadingMore,
+                    loadMoreError: _loadMoreError,
+                    onLoadMore: _loadMore,
+                    onOpenDetail: _openDetail,
+                  ),
                 );
               },
             ),
@@ -251,6 +279,7 @@ class _ThemeToggleButton extends StatelessWidget {
 }
 
 class _CatalogGrid extends StatelessWidget {
+  final ScrollController controller;
   final List<Character> characters;
   final bool hasNext;
   final bool isLoadingMore;
@@ -259,6 +288,7 @@ class _CatalogGrid extends StatelessWidget {
   final void Function(Character) onOpenDetail;
 
   const _CatalogGrid({
+    required this.controller,
     required this.characters,
     required this.hasNext,
     required this.isLoadingMore,
@@ -277,6 +307,10 @@ class _CatalogGrid extends StatelessWidget {
     final columns = width ~/ 180 == 0 ? 2 : (width ~/ 180).clamp(2, 5);
 
     return CustomScrollView(
+      controller: controller,
+      // RefreshIndicator precisa de física sempre rolável mesmo quando o
+      // conteúdo cabe inteiro na tela, senão o gesto de puxar não dispara.
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.all(12),
@@ -353,25 +387,30 @@ class _LoadMoreSection extends StatelessWidget {
       );
     }
 
+    // Caminho feliz: a rolagem já dispara a próxima página sozinha (ver
+    // `_onScroll` em CatalogScreen), sem precisar de botão. O botão só volta
+    // quando a tentativa automática falhou — aí é retry explícito.
+    if (errorMessage == null) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
-        if (errorMessage != null) ...[
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              errorMessage!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            errorMessage!,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
             ),
           ),
-          const SizedBox(height: 12),
-        ],
+        ),
+        const SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: onLoadMore,
           icon: const Icon(Icons.expand_more),
-          label: Text(errorMessage == null ? 'Carregar Mais' : 'Tentar novamente'),
+          label: const Text('Tentar novamente'),
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(200, 48),
           ),

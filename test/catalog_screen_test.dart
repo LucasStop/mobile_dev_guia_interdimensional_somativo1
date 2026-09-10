@@ -119,28 +119,59 @@ void main() {
     expect(find.text('Você chegou ao fim do catálogo.'), findsOneWidget);
   });
 
-  testWidgets('"Carregar Mais" acrescenta a página seguinte à grade',
+  testWidgets('rolar até o fim busca a página seguinte automaticamente',
       (tester) async {
-    var page = 0;
+    // Contagem de chamadas em vez de contar CharacterCard: o GridView só
+    // constrói os itens visíveis, então "quantos cards existem" não reflete
+    // quantas páginas já chegaram numa lista de 20+ itens.
+    var requests = 0;
     await pumpCatalog(
       tester,
       respond: (_) async {
-        page++;
+        requests++;
         return jsonResponse({
-          'info': {'next': page == 1 ? 'https://example.test/?page=2' : null},
-          'results': [character(page, 'Personagem $page')],
+          'info': {
+            'next': requests == 1 ? 'https://example.test/?page=2' : null,
+          },
+          // Página cheia pra garantir que a grade role, senão não há como
+          // simular "chegar perto do fim" da lista.
+          'results': List.generate(
+            20,
+            (i) => character(requests * 100 + i, 'Página $requests item $i'),
+          ),
         });
       },
     );
     await tester.pumpAndSettle();
-    expect(find.byType(CharacterCard), findsOneWidget);
+    expect(requests, 1);
 
-    await tester.tap(find.text('Carregar Mais'));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -100000));
     await tester.pumpAndSettle();
 
-    // A grade acumula em vez de trocar de conteúdo.
-    expect(find.byType(CharacterCard), findsNWidgets(2));
+    expect(requests, 2);
     expect(find.text('Carregar Mais'), findsNothing);
+  });
+
+  testWidgets('puxar pra baixo recarrega a primeira página', (tester) async {
+    var loads = 0;
+    await pumpCatalog(
+      tester,
+      respond: (_) async {
+        loads++;
+        return jsonResponse({
+          'info': {'next': null},
+          'results': [character(loads, 'Carga $loads')],
+        });
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(loads, 1);
+
+    await tester.fling(find.byType(CustomScrollView), const Offset(0, 300), 1000);
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('Carga 2'), findsOneWidget);
   });
 
   testWidgets('falha de rede vira mensagem amigável com opção de repetir',
