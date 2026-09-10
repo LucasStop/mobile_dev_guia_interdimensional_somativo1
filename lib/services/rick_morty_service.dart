@@ -54,9 +54,8 @@ class RickMortyService {
   }
 
   /// RF08 — busca por nome. A API devolve uma lista ordenada por relevância e
-  /// responde 404 quando nada bate; o primeiro resultado é o que vai direto
-  /// para a tela de detalhes.
-  Future<Character> searchCharacterByName(String name) async {
+  /// responde 404 quando nada bate.
+  Future<List<Character>> searchCharacters(String name) async {
     final query = Uri.encodeQueryComponent(name.trim());
     final json = await _getJson(
       '$_baseUrl/character/?name=$query',
@@ -67,7 +66,9 @@ class RickMortyService {
     if (results.isEmpty) {
       throw const ApiException('Nenhum personagem encontrado com esse nome.');
     }
-    return Character.fromJson(results.first as Map<String, dynamic>);
+    return results
+        .map((e) => Character.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// RF03 — local de origem. Só é chamado quando o personagem tem origem

@@ -13,6 +13,7 @@ import '../widgets/loading_view.dart';
 import 'character_detail_screen.dart';
 import 'marked_list_screen.dart';
 import 'profile_screen.dart';
+import 'search_results_screen.dart';
 
 /// Tela principal (RF01): grade paginada de personagens.
 class CatalogScreen extends StatefulWidget {
@@ -107,6 +108,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
+  /// Um resultado só vai direto pro detalhe, como antes; mais de um vira
+  /// grade de resultados.
+  void _openSearchResults(List<Character> results) {
+    if (results.length == 1) {
+      _openDetail(results.first);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SearchResultsScreen(characters: results),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -152,7 +167,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       body: Column(
         children: [
-          CharacterSearchField(service: _service, onFound: _openDetail),
+          CharacterSearchField(service: _service, onResults: _openSearchResults),
           Expanded(
             child: FutureBuilder<void>(
               future: _initialLoad,

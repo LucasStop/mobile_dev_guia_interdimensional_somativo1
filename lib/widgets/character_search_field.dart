@@ -9,12 +9,12 @@ import '../services/rick_morty_service.dart';
 /// tenha falhado ao carregar, a busca continua disponível.
 class CharacterSearchField extends StatefulWidget {
   final RickMortyService service;
-  final void Function(Character) onFound;
+  final void Function(List<Character>) onResults;
 
   const CharacterSearchField({
     super.key,
     required this.service,
-    required this.onFound,
+    required this.onResults,
   });
 
   @override
@@ -47,10 +47,10 @@ class _CharacterSearchFieldState extends State<CharacterSearchField> {
     });
 
     try {
-      final character = await widget.service.searchCharacterByName(term);
+      final results = await widget.service.searchCharacters(term);
       if (!mounted) return;
       setState(() => _isSearching = false);
-      widget.onFound(character);
+      widget.onResults(results);
     } on ApiException catch (e) {
       // A API responde 404 quando nenhum nome bate. O service já transforma
       // isso em texto para o usuário, então aqui é só exibir.
