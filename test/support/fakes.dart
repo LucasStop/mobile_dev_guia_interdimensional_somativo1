@@ -74,5 +74,11 @@ class FakeAuthRepository implements AuthRepository {
     lastPasswordResetEmail = email;
   }
 
+  @override
+  Future<void> deleteAccount() async {
+    _isLoggedIn = false;
+    _controller.add(false);
+  }
+
   void dispose() => _controller.close();
 }

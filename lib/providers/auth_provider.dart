@@ -106,6 +106,18 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteAccount() async {
+    _startSubmitting();
+    try {
+      await _repository.deleteAccount();
+      _isSubmitting = false;
+      _errorMessage = null;
+      notifyListeners();
+    } on AuthFailure catch (e) {
+      _fail(e.message);
+    }
+  }
+
   /// Volta da tela "verifique seu e-mail" pro formulário de entrar.
   void dismissEmailConfirmationNotice() {
     _awaitingEmailConfirmation = false;
