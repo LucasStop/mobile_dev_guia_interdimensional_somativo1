@@ -28,9 +28,23 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
-      await context.read<AuthProvider>().deleteAccount();
+    if (confirmed != true || !context.mounted) return;
+
+    final auth = context.read<AuthProvider>();
+    await auth.deleteAccount();
+    // A exclusão já desloga sozinha (repository.deleteAccount chama signOut).
+    // Sem isso, a tela ficaria presa no Perfil mostrando o e-mail sumido em
+    // vez de voltar pro login — o gate de sessão troca a rota raiz, mas essa
+    // tela foi empilhada por cima dela e não desce sozinha.
+    if (auth.errorMessage == null && context.mounted) {
+      Navigator.of(context).pop();
     }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    await auth.signOut();
+    if (context.mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -64,7 +78,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 32),
                   OutlinedButton.icon(
-                    onPressed: () => auth.signOut(),
+                    onPressed: () => _signOut(context),
                     icon: const Icon(Icons.logout),
                     label: const Text('Sair da conta'),
                     style: OutlinedButton.styleFrom(
