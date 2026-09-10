@@ -151,43 +151,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Guia Interdimensional'),
-        actions: [
-          _ListShortcut<WatchedProvider>(
-            icon: Icons.visibility_outlined,
-            label: 'Vistos',
-            destination: const MarkedListScreen<WatchedProvider>(
-              title: 'Vistos',
-              emptyIcon: Icons.visibility_off_outlined,
-              emptyMessage:
-                  'Você ainda não marcou nenhum personagem como visto.\n'
-                  'Abra um personagem e toque no ícone de olho.',
-            ),
-          ),
-          _ListShortcut<FavoritesProvider>(
-            icon: Icons.star_border,
-            label: 'Favoritos',
-            destination: const MarkedListScreen<FavoritesProvider>(
-              title: 'Favoritos',
-              emptyIcon: Icons.star_border,
-              emptyMessage:
-                  'Você ainda não favoritou nenhum personagem.\n'
-                  'Abra um personagem e toque na estrela.',
-            ),
-          ),
-          const _ThemeToggleButton(),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: 'Perfil',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sair da conta',
-            onPressed: () => context.read<AuthProvider>().signOut(),
-          ),
-        ],
+        actions: const [_OverflowMenu()],
       ),
       body: Column(
         children: [
@@ -228,52 +192,120 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 }
 
-/// Atalho da barra superior para uma lista marcada, com a contagem atual
-/// (RF05). A contagem vem do provider, então sobe e desce junto com o que o
-/// usuário marca na tela de detalhes.
-class _ListShortcut<T extends CharacterListProvider> extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Widget destination;
+/// Ações da AppBar (Vistos, Favoritos, tema, perfil, sair) agrupadas num
+/// menu só — com os 5 ícones lado a lado o título "Guia Interdimensional"
+/// ficava cortado em telas comuns.
+enum _MenuAction { watched, favorites, theme, profile, signOut }
 
-  const _ListShortcut({
-    required this.icon,
-    required this.label,
-    required this.destination,
-  });
+class _OverflowMenu extends StatelessWidget {
+  const _OverflowMenu();
 
   @override
   Widget build(BuildContext context) {
-    final count = context.select<T, int>((provider) => provider.count);
+    final watchedCount = context.watch<WatchedProvider>().count;
+    final favoritesCount = context.watch<FavoritesProvider>().count;
+    final isDark = context.watch<ThemeProvider>().isDark(context);
 
-    return IconButton(
-      tooltip: label,
-      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-      icon: Badge(
-        isLabelVisible: count > 0,
-        label: Text('$count'),
-        child: Icon(icon),
-      ),
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => destination),
-      ),
+    return PopupMenuButton<_MenuAction>(
+      tooltip: 'Menu',
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) {
+        switch (action) {
+          case _MenuAction.watched:
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const MarkedListScreen<WatchedProvider>(
+                  title: 'Vistos',
+                  emptyIcon: Icons.visibility_off_outlined,
+                  emptyMessage:
+                      'Você ainda não marcou nenhum personagem como visto.\n'
+                      'Abra um personagem e toque no ícone de olho.',
+                ),
+              ),
+            );
+          case _MenuAction.favorites:
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const MarkedListScreen<FavoritesProvider>(
+                  title: 'Favoritos',
+                  emptyIcon: Icons.star_border,
+                  emptyMessage:
+                      'Você ainda não favoritou nenhum personagem.\n'
+                      'Abra um personagem e toque na estrela.',
+                ),
+              ),
+            );
+          case _MenuAction.theme:
+            context.read<ThemeProvider>().toggle(context);
+          case _MenuAction.profile:
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+          case _MenuAction.signOut:
+            context.read<AuthProvider>().signOut();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _MenuAction.watched,
+          child: _MenuRow(
+            icon: Icons.visibility_outlined,
+            label: 'Vistos',
+            count: watchedCount,
+          ),
+        ),
+        PopupMenuItem(
+          value: _MenuAction.favorites,
+          child: _MenuRow(
+            icon: Icons.star_border,
+            label: 'Favoritos',
+            count: favoritesCount,
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _MenuAction.theme,
+          child: _MenuRow(
+            icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+            label: isDark ? 'Ativar tema claro' : 'Ativar tema escuro',
+          ),
+        ),
+        PopupMenuItem(
+          value: _MenuAction.profile,
+          child: const _MenuRow(icon: Icons.person_outline, label: 'Perfil'),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: _MenuAction.signOut,
+          child: const _MenuRow(icon: Icons.logout, label: 'Sair da conta'),
+        ),
+      ],
     );
   }
 }
 
-/// Alterna entre o tema claro e o escuro da série (opcional dark mode, RF10).
-class _ThemeToggleButton extends StatelessWidget {
-  const _ThemeToggleButton();
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int? count;
+
+  const _MenuRow({required this.icon, required this.label, this.count});
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-    final isDark = themeProvider.isDark(context);
-
-    return IconButton(
-      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-      tooltip: isDark ? 'Ativar tema claro' : 'Ativar tema escuro',
-      onPressed: () => context.read<ThemeProvider>().toggle(context),
+    return Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Expanded(child: Text(label)),
+        if (count != null && count! > 0)
+          Text(
+            '$count',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
     );
   }
 }
