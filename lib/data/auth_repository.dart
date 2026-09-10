@@ -62,6 +62,10 @@ abstract class AuthRepository {
   Future<SignUpResult> signUp(String email, String password);
   Future<void> signIn(String email, String password);
   Future<void> signOut();
+
+  /// Manda o e-mail de redefinição de senha do Supabase Auth. A troca de
+  /// senha em si acontece fora do app, pelo link recebido.
+  Future<void> sendPasswordResetEmail(String email);
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -109,6 +113,15 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() => _client.auth.signOut();
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(email);
+    } on supabase.AuthException catch (e) {
+      throw AuthFailure(_translate(e));
+    }
+  }
 
   String _translate(supabase.AuthException e) => translateAuthErrorMessage(e.message);
 }
