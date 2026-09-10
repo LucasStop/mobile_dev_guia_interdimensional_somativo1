@@ -151,8 +151,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Guia Interdimensional'),
-        actions: const [_OverflowMenu()],
+        actions: const [_ThemeToggleButton()],
       ),
+      drawer: const _AppDrawer(),
       body: Column(
         children: [
           CharacterSearchField(service: _service, onResults: _openSearchResults),
@@ -192,120 +193,169 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 }
 
-/// Ações da AppBar (Vistos, Favoritos, tema, perfil, sair) agrupadas num
-/// menu só — com os 5 ícones lado a lado o título "Guia Interdimensional"
-/// ficava cortado em telas comuns.
-enum _MenuAction { watched, favorites, theme, profile, signOut }
+/// Menu lateral (Vistos, Favoritos, tema, perfil, sair) — substitui os
+/// ícones soltos da AppBar, que cortavam o título "Guia Interdimensional".
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer();
 
-class _OverflowMenu extends StatelessWidget {
-  const _OverflowMenu();
+  void _closeAndPush(BuildContext context, Widget screen) {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     final watchedCount = context.watch<WatchedProvider>().count;
     final favoritesCount = context.watch<FavoritesProvider>().count;
-    final isDark = context.watch<ThemeProvider>().isDark(context);
 
-    return PopupMenuButton<_MenuAction>(
-      tooltip: 'Menu',
-      icon: const Icon(Icons.more_vert),
-      onSelected: (action) {
-        switch (action) {
-          case _MenuAction.watched:
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MarkedListScreen<WatchedProvider>(
-                  title: 'Vistos',
-                  emptyIcon: Icons.visibility_off_outlined,
-                  emptyMessage:
-                      'Você ainda não marcou nenhum personagem como visto.\n'
-                      'Abra um personagem e toque no ícone de olho.',
-                ),
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _DrawerHeader(email: auth.userEmail ?? ''),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _DrawerTile(
+                    icon: Icons.visibility_outlined,
+                    label: 'Vistos',
+                    count: watchedCount,
+                    onTap: () => _closeAndPush(
+                      context,
+                      const MarkedListScreen<WatchedProvider>(
+                        title: 'Vistos',
+                        emptyIcon: Icons.visibility_off_outlined,
+                        emptyMessage:
+                            'Você ainda não marcou nenhum personagem como visto.\n'
+                            'Abra um personagem e toque no ícone de olho.',
+                      ),
+                    ),
+                  ),
+                  _DrawerTile(
+                    icon: Icons.star_border,
+                    label: 'Favoritos',
+                    count: favoritesCount,
+                    onTap: () => _closeAndPush(
+                      context,
+                      const MarkedListScreen<FavoritesProvider>(
+                        title: 'Favoritos',
+                        emptyIcon: Icons.star_border,
+                        emptyMessage:
+                            'Você ainda não favoritou nenhum personagem.\n'
+                            'Abra um personagem e toque na estrela.',
+                      ),
+                    ),
+                  ),
+                  const Divider(),
+                  _DrawerTile(
+                    icon: Icons.person_outline,
+                    label: 'Perfil',
+                    onTap: () => _closeAndPush(context, const ProfileScreen()),
+                  ),
+                  const Divider(),
+                  _DrawerTile(
+                    icon: Icons.logout,
+                    label: 'Sair da conta',
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.read<AuthProvider>().signOut();
+                    },
+                  ),
+                ],
               ),
-            );
-          case _MenuAction.favorites:
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MarkedListScreen<FavoritesProvider>(
-                  title: 'Favoritos',
-                  emptyIcon: Icons.star_border,
-                  emptyMessage:
-                      'Você ainda não favoritou nenhum personagem.\n'
-                      'Abra um personagem e toque na estrela.',
-                ),
-              ),
-            );
-          case _MenuAction.theme:
-            context.read<ThemeProvider>().toggle(context);
-          case _MenuAction.profile:
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
-          case _MenuAction.signOut:
-            context.read<AuthProvider>().signOut();
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: _MenuAction.watched,
-          child: _MenuRow(
-            icon: Icons.visibility_outlined,
-            label: 'Vistos',
-            count: watchedCount,
-          ),
+            ),
+          ],
         ),
-        PopupMenuItem(
-          value: _MenuAction.favorites,
-          child: _MenuRow(
-            icon: Icons.star_border,
-            label: 'Favoritos',
-            count: favoritesCount,
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: _MenuAction.theme,
-          child: _MenuRow(
-            icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-            label: isDark ? 'Ativar tema claro' : 'Ativar tema escuro',
-          ),
-        ),
-        PopupMenuItem(
-          value: _MenuAction.profile,
-          child: const _MenuRow(icon: Icons.person_outline, label: 'Perfil'),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: _MenuAction.signOut,
-          child: const _MenuRow(icon: Icons.logout, label: 'Sair da conta'),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _MenuRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final int? count;
+class _DrawerHeader extends StatelessWidget {
+  final String email;
 
-  const _MenuRow({required this.icon, required this.label, this.count});
+  const _DrawerHeader({required this.email});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label)),
-        if (count != null && count! > 0)
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [scheme.primary, scheme.secondary],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            '$count',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            email,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: scheme.onPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
             ),
           ),
-      ],
+          const SizedBox(height: 2),
+          Text(
+            'Guia Interdimensional',
+            style: TextStyle(
+              color: scheme.onPrimary.withValues(alpha: 0.8),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botão de tema na AppBar principal — troca claro/escuro de qualquer tela
+/// do catálogo, sem precisar abrir o menu lateral.
+class _ThemeToggleButton extends StatelessWidget {
+  const _ThemeToggleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.watch<ThemeProvider>().isDark(context);
+
+    return IconButton(
+      tooltip: isDark ? 'Ativar tema claro' : 'Ativar tema escuro',
+      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+      onPressed: () => context.read<ThemeProvider>().toggle(context),
+    );
+  }
+}
+
+class _DrawerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int? count;
+  final VoidCallback onTap;
+
+  const _DrawerTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      trailing: (count != null && count! > 0) ? Text('$count') : null,
+      onTap: onTap,
     );
   }
 }
