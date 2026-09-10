@@ -1,4 +1,34 @@
+import 'dart:developer' as developer;
+
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+
+/// Traduz a mensagem de um `AuthException` do Supabase pra PT-BR.
+///
+/// Mensagens desconhecidas caem num fallback genérico em vez de devolver o
+/// texto bruto do Supabase — evita vazar detalhe interno da API pra UI.
+String translateAuthErrorMessage(String rawMessage) {
+  final message = rawMessage.toLowerCase();
+  if (message.contains('already registered') ||
+      message.contains('already exists') ||
+      message.contains('user already')) {
+    return 'Este e-mail já tem uma conta — tente entrar em vez de cadastrar.';
+  }
+  if (message.contains('invalid login credentials')) {
+    return 'E-mail ou senha incorretos.';
+  }
+  if (message.contains('email not confirmed')) {
+    return 'Confirme seu e-mail antes de entrar — veja o link que mandamos pra sua caixa de entrada.';
+  }
+  if (message.contains('password') &&
+      (message.contains('6') || message.contains('short'))) {
+    return 'A senha precisa ter pelo menos 6 caracteres.';
+  }
+  if (message.contains('rate limit') || message.contains('security purposes')) {
+    return 'Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo.';
+  }
+  developer.log('Erro de auth não mapeado: $rawMessage', name: 'AuthRepository');
+  return 'Não foi possível completar o pedido. Tente novamente em instantes.';
+}
 
 /// Falha de autenticação já traduzida pra uma mensagem que pode ir direto
 /// pra tela (RF09), sem a UI precisar conhecer a API do Supabase.
@@ -80,26 +110,5 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => _client.auth.signOut();
 
-  String _translate(supabase.AuthException e) {
-    final message = e.message.toLowerCase();
-    if (message.contains('already registered') ||
-        message.contains('already exists') ||
-        message.contains('user already')) {
-      return 'Este e-mail já tem uma conta — tente entrar em vez de cadastrar.';
-    }
-    if (message.contains('invalid login credentials')) {
-      return 'E-mail ou senha incorretos.';
-    }
-    if (message.contains('email not confirmed')) {
-      return 'Confirme seu e-mail antes de entrar — veja o link que mandamos pra sua caixa de entrada.';
-    }
-    if (message.contains('password') &&
-        (message.contains('6') || message.contains('short'))) {
-      return 'A senha precisa ter pelo menos 6 caracteres.';
-    }
-    if (message.contains('rate limit') || message.contains('security purposes')) {
-      return 'Muitas tentativas em pouco tempo. Aguarde um instante e tente de novo.';
-    }
-    return 'Não foi possível completar: ${e.message}';
-  }
+  String _translate(supabase.AuthException e) => translateAuthErrorMessage(e.message);
 }
