@@ -49,3 +49,6 @@ app.*.map.json
 
 # Credenciais reais do Supabase — ver lib/config/supabase_config.example.dart
 lib/config/supabase_config.dart
+
+# Cache local do Supabase CLI (link/deploy) — específico da máquina
+supabase/.temp/
