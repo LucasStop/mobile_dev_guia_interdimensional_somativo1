@@ -36,6 +36,17 @@ void main() {
     });
   });
 
+  group('clearError', () {
+    test('limpa o erro deixado por uma tentativa de login anterior', () async {
+      await provider.signIn('user@example.com', '');
+      expect(provider.errorMessage, isNotNull);
+
+      provider.clearError();
+
+      expect(provider.errorMessage, isNull);
+    });
+  });
+
   group('resendConfirmationEmail', () {
     test('chama o repositório com o e-mail certo', () async {
       await provider.resendConfirmationEmail('user@example.com');
