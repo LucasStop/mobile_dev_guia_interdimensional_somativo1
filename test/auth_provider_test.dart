@@ -36,6 +36,14 @@ void main() {
     });
   });
 
+  group('resendConfirmationEmail', () {
+    test('chama o repositório com o e-mail certo', () async {
+      await provider.resendConfirmationEmail('user@example.com');
+
+      expect(repository.lastResendEmail, 'user@example.com');
+    });
+  });
+
   group('deleteAccount', () {
     test('desloga o usuário', () async {
       expect(provider.isLoggedIn, isTrue);

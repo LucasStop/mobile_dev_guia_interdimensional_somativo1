@@ -118,6 +118,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Reenvia o e-mail de confirmação de cadastro. Sem estado próprio no
+  /// provider — a tela que chama controla seu próprio feedback local, porque
+  /// isso não deve competir com `isSubmitting`/`errorMessage` do formulário
+  /// principal.
+  Future<void> resendConfirmationEmail(String email) =>
+      _repository.resendConfirmationEmail(email);
+
   /// Volta da tela "verifique seu e-mail" pro formulário de entrar.
   void dismissEmailConfirmationNotice() {
     _awaitingEmailConfirmation = false;
