@@ -195,11 +195,14 @@ class _AuthForm extends StatelessWidget {
                       child: TextButton(
                         onPressed: isSubmitting
                             ? null
-                            : () => Navigator.of(context).push(
+                            : () {
+                                context.read<AuthProvider>().clearError();
+                                Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const ForgotPasswordScreen(),
                                   ),
-                                ),
+                                );
+                              },
                         child: const Text('Esqueci minha senha'),
                       ),
                     ),

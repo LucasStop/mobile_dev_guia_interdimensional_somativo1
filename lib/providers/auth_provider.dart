@@ -125,6 +125,13 @@ class AuthProvider extends ChangeNotifier {
   Future<void> resendConfirmationEmail(String email) =>
       _repository.resendConfirmationEmail(email);
 
+  /// Limpa erro de uma tela anterior antes de abrir outro fluxo (ex.:
+  /// "esqueci minha senha" não deve herdar o erro de um login que falhou).
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   /// Volta da tela "verifique seu e-mail" pro formulário de entrar.
   void dismissEmailConfirmationNotice() {
     _awaitingEmailConfirmation = false;
