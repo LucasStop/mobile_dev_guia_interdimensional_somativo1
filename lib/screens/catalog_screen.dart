@@ -12,6 +12,7 @@ import '../widgets/error_view.dart';
 import '../widgets/loading_view.dart';
 import 'character_detail_screen.dart';
 import 'marked_list_screen.dart';
+import 'profile_screen.dart';
 
 /// Tela principal (RF01): grade paginada de personagens.
 class CatalogScreen extends StatefulWidget {
@@ -135,6 +136,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
           ),
           const _ThemeToggleButton(),
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Perfil',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair da conta',
