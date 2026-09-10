@@ -66,16 +66,16 @@ void main() {
     });
   });
 
-  group('searchCharacterByName', () {
-    test('devolve o primeiro resultado', () async {
+  group('searchCharacters', () {
+    test('devolve todos os resultados, não só o primeiro', () async {
       final service = serviceReturning({
         'info': {'next': null},
         'results': [character(2, 'Morty Smith'), character(3, 'Morty Jr.')],
       });
 
-      final found = await service.searchCharacterByName('morty');
+      final found = await service.searchCharacters('morty');
 
-      expect(found.id, 2);
+      expect(found.map((c) => c.id), [2, 3]);
     });
 
     test('converte o 404 da API em mensagem para o usuário', () async {
@@ -85,7 +85,7 @@ void main() {
       );
 
       expect(
-        () => service.searchCharacterByName('zzzz'),
+        () => service.searchCharacters('zzzz'),
         throwsA(
           isA<ApiException>().having(
             (e) => e.message,
