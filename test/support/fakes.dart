@@ -41,6 +41,8 @@ class FakeAuthRepository implements AuthRepository {
   final _controller = StreamController<bool>.broadcast();
   String? lastPasswordResetEmail;
   String? lastResendEmail;
+  String? lastNewPassword;
+  final _recoveryController = StreamController<void>.broadcast();
 
   FakeAuthRepository({this._isLoggedIn = true});
 
@@ -86,5 +88,20 @@ class FakeAuthRepository implements AuthRepository {
     lastResendEmail = email;
   }
 
-  void dispose() => _controller.close();
+  @override
+  Stream<void> get passwordRecoveryEvents => _recoveryController.stream;
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    lastNewPassword = newPassword;
+  }
+
+  /// Simula o Supabase reconhecendo o link de recovery (só alcançável de
+  /// verdade no alvo web, na implementação real).
+  void emitPasswordRecovery() => _recoveryController.add(null);
+
+  void dispose() {
+    _controller.close();
+    _recoveryController.close();
+  }
 }

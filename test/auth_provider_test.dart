@@ -36,6 +36,40 @@ void main() {
     });
   });
 
+  group('recuperação de senha (web)', () {
+    test('evento de recovery do repositório vira isPasswordRecovery', () async {
+      expect(provider.isPasswordRecovery, isFalse);
+
+      repository.emitPasswordRecovery();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(provider.isPasswordRecovery, isTrue);
+    });
+
+    test('updatePassword com senha curta falha sem chamar o repositório', () async {
+      repository.emitPasswordRecovery();
+      await Future<void>.delayed(Duration.zero);
+
+      await provider.updatePassword('123');
+
+      expect(provider.errorMessage, isNotNull);
+      expect(repository.lastNewPassword, isNull);
+      expect(provider.isPasswordRecovery, isTrue);
+    });
+
+    test('updatePassword válido chama o repositório e encerra a recuperação',
+        () async {
+      repository.emitPasswordRecovery();
+      await Future<void>.delayed(Duration.zero);
+
+      await provider.updatePassword('novaSenha123');
+
+      expect(repository.lastNewPassword, 'novaSenha123');
+      expect(provider.isPasswordRecovery, isFalse);
+      expect(provider.errorMessage, isNull);
+    });
+  });
+
   group('clearError', () {
     test('limpa o erro deixado por uma tentativa de login anterior', () async {
       await provider.signIn('user@example.com', '');
