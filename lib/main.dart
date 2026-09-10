@@ -11,6 +11,7 @@ import 'providers/character_list_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/catalog_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/new_password_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -107,6 +108,13 @@ class _SessionGateState extends State<_SessionGate> {
         }
       });
     }
+
+    // Recovery tem prioridade sobre "logado": o Supabase abre uma sessão
+    // válida durante o recovery, mas o usuário ainda precisa definir a nova
+    // senha antes de cair no catálogo normalmente.
+    final isPasswordRecovery =
+        context.select<AuthProvider, bool>((a) => a.isPasswordRecovery);
+    if (isPasswordRecovery) return const NewPasswordScreen();
 
     return isLoggedIn ? const CatalogScreen() : const LoginScreen();
   }

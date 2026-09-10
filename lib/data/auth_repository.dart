@@ -74,6 +74,14 @@ abstract class AuthRepository {
 
   /// Reenvia o e-mail de confirmação de cadastro.
   Future<void> resendConfirmationEmail(String email);
+
+  /// Emite quando o Supabase reconhece uma sessão de recovery de senha —
+  /// hoje só alcançável de verdade no alvo web, onde o link do e-mail abre a
+  /// própria URL do app rodando (sem depender de deep link nativo).
+  Stream<void> get passwordRecoveryEvents;
+
+  /// Define a nova senha durante uma sessão de recovery.
+  Future<void> updatePassword(String newPassword);
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -142,6 +150,22 @@ class SupabaseAuthRepository implements AuthRepository {
       );
     }
     await _client.auth.signOut();
+  }
+
+  @override
+  Stream<void> get passwordRecoveryEvents => _client.auth.onAuthStateChange
+      .where((data) => data.event == supabase.AuthChangeEvent.passwordRecovery)
+      .map((_) {});
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(
+        supabase.UserAttributes(password: newPassword),
+      );
+    } on supabase.AuthException catch (e) {
+      throw AuthFailure(_translate(e));
+    }
   }
 
   @override

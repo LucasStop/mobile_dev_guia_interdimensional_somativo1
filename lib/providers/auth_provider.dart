@@ -8,17 +8,23 @@ import '../data/auth_repository.dart';
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _repository;
   late final StreamSubscription<bool> _authSubscription;
+  late final StreamSubscription<void> _recoverySubscription;
 
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _awaitingEmailConfirmation = false;
   bool _passwordResetEmailSent = false;
+  bool _isPasswordRecovery = false;
 
   AuthProvider(this._repository) {
     // A sessão pode mudar por fora de um `signIn` explícito — token
     // expirando, refresh automático do pacote — então a UI escuta o stream
     // em vez de só confiar no retorno das próprias chamadas.
     _authSubscription = _repository.authStateChanges.listen((_) {
+      notifyListeners();
+    });
+    _recoverySubscription = _repository.passwordRecoveryEvents.listen((_) {
+      _isPasswordRecovery = true;
       notifyListeners();
     });
   }
@@ -29,6 +35,7 @@ class AuthProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get awaitingEmailConfirmation => _awaitingEmailConfirmation;
   bool get passwordResetEmailSent => _passwordResetEmailSent;
+  bool get isPasswordRecovery => _isPasswordRecovery;
 
   Future<void> signUp(String email, String password, String confirmPassword) async {
     final trimmedEmail = email.trim();
@@ -106,6 +113,23 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updatePassword(String newPassword) async {
+    if (newPassword.length < 6) {
+      _fail('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    _startSubmitting();
+    try {
+      await _repository.updatePassword(newPassword);
+      _isSubmitting = false;
+      _isPasswordRecovery = false;
+      notifyListeners();
+    } on AuthFailure catch (e) {
+      _fail(e.message);
+    }
+  }
+
   Future<void> deleteAccount() async {
     _startSubmitting();
     try {
@@ -153,6 +177,7 @@ class AuthProvider extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription.cancel();
+    _recoverySubscription.cancel();
     super.dispose();
   }
 }
