@@ -12,6 +12,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _awaitingEmailConfirmation = false;
+  bool _passwordResetEmailSent = false;
 
   AuthProvider(this._repository) {
     // A sessão pode mudar por fora de um `signIn` explícito — token
@@ -27,6 +28,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
   bool get awaitingEmailConfirmation => _awaitingEmailConfirmation;
+  bool get passwordResetEmailSent => _passwordResetEmailSent;
 
   Future<void> signUp(String email, String password, String confirmPassword) async {
     final trimmedEmail = email.trim();
@@ -72,6 +74,25 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _repository.signIn(trimmedEmail, password);
       _isSubmitting = false;
+      notifyListeners();
+    } on AuthFailure catch (e) {
+      _fail(e.message);
+    }
+  }
+
+  Future<void> sendPasswordReset(String email) async {
+    final trimmedEmail = email.trim();
+
+    if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
+      _fail('Digite um e-mail válido.');
+      return;
+    }
+
+    _startSubmitting();
+    try {
+      await _repository.sendPasswordResetEmail(trimmedEmail);
+      _isSubmitting = false;
+      _passwordResetEmailSent = true;
       notifyListeners();
     } on AuthFailure catch (e) {
       _fail(e.message);

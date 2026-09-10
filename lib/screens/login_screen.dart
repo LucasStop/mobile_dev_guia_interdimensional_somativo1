@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 
 /// Porta de entrada do app (RF07): sem sessão aberta, o catálogo não aparece.
 ///
@@ -184,6 +185,21 @@ class _AuthForm extends StatelessWidget {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.error,
                         ),
+                      ),
+                    ),
+                  ],
+                  if (!isSignUp) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ForgotPasswordScreen(),
+                                  ),
+                                ),
+                        child: const Text('Esqueci minha senha'),
                       ),
                     ),
                   ],

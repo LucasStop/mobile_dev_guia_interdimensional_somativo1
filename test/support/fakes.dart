@@ -39,6 +39,7 @@ class FakeCharacterListRepository implements CharacterListRepository {
 class FakeAuthRepository implements AuthRepository {
   bool _isLoggedIn;
   final _controller = StreamController<bool>.broadcast();
+  String? lastPasswordResetEmail;
 
   FakeAuthRepository({this._isLoggedIn = true});
 
@@ -66,6 +67,11 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     _isLoggedIn = false;
     _controller.add(false);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    lastPasswordResetEmail = email;
   }
 
   void dispose() => _controller.close();
