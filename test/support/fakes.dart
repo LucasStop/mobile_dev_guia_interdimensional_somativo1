@@ -40,6 +40,7 @@ class FakeAuthRepository implements AuthRepository {
   bool _isLoggedIn;
   final _controller = StreamController<bool>.broadcast();
   String? lastPasswordResetEmail;
+  String? lastResendEmail;
 
   FakeAuthRepository({this._isLoggedIn = true});
 
@@ -78,6 +79,11 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> deleteAccount() async {
     _isLoggedIn = false;
     _controller.add(false);
+  }
+
+  @override
+  Future<void> resendConfirmationEmail(String email) async {
+    lastResendEmail = email;
   }
 
   void dispose() => _controller.close();

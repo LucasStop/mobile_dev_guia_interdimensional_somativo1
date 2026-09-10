@@ -71,6 +71,9 @@ abstract class AuthRepository {
   /// diretamente — a Edge Function `delete-account` faz a exclusão de fato
   /// com a service_role key.
   Future<void> deleteAccount();
+
+  /// Reenvia o e-mail de confirmação de cadastro.
+  Future<void> resendConfirmationEmail(String email);
 }
 
 class SupabaseAuthRepository implements AuthRepository {
@@ -139,6 +142,15 @@ class SupabaseAuthRepository implements AuthRepository {
       );
     }
     await _client.auth.signOut();
+  }
+
+  @override
+  Future<void> resendConfirmationEmail(String email) async {
+    try {
+      await _client.auth.resend(type: supabase.OtpType.signup, email: email);
+    } on supabase.AuthException catch (e) {
+      throw AuthFailure(_translate(e));
+    }
   }
 
   String _translate(supabase.AuthException e) => translateAuthErrorMessage(e.message);

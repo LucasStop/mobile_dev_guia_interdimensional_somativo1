@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/auth_repository.dart';
 import '../providers/auth_provider.dart';
 import 'forgot_password_screen.dart';
 
@@ -242,7 +243,7 @@ class _AuthForm extends StatelessWidget {
 /// Estado pós-cadastro: a conta existe no Supabase, mas a sessão só abre
 /// depois de o usuário confirmar o e-mail pelo link recebido — isso não dá
 /// pra automatizar de dentro do app.
-class _EmailConfirmationNotice extends StatelessWidget {
+class _EmailConfirmationNotice extends StatefulWidget {
   final String email;
   final VoidCallback onBackToLogin;
 
@@ -252,8 +253,39 @@ class _EmailConfirmationNotice extends StatelessWidget {
   });
 
   @override
+  State<_EmailConfirmationNotice> createState() => _EmailConfirmationNoticeState();
+}
+
+class _EmailConfirmationNoticeState extends State<_EmailConfirmationNotice> {
+  bool _isResending = false;
+  bool _resent = false;
+  String? _resendError;
+
+  Future<void> _resend() async {
+    setState(() {
+      _isResending = true;
+      _resendError = null;
+    });
+    try {
+      await context.read<AuthProvider>().resendConfirmationEmail(widget.email);
+      if (!mounted) return;
+      setState(() {
+        _isResending = false;
+        _resent = true;
+      });
+    } on AuthFailure catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isResending = false;
+        _resendError = e.message;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final email = widget.email;
 
     return Scaffold(
       body: SafeArea(
@@ -296,9 +328,33 @@ class _EmailConfirmationNotice extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  if (_resendError != null) ...[
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        _resendError!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  TextButton(
+                    onPressed: _isResending ? null : _resend,
+                    child: Text(
+                      _resent
+                          ? 'E-mail reenviado'
+                          : (_isResending
+                              ? 'Reenviando...'
+                              : 'Reenviar e-mail de confirmação'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   FilledButton(
-                    onPressed: onBackToLogin,
+                    onPressed: widget.onBackToLogin,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                     ),
