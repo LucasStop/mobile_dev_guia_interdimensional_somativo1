@@ -52,3 +52,9 @@ lib/config/supabase_config.dart
 
 # Cache local do Supabase CLI (link/deploy) — específico da máquina
 supabase/.temp/
+
+# Clipes brutos do vídeo de entrega (F2 passa de 100 MB, limite do GitHub)
+docs/video/**/*.mov
+docs/video/flows/
+docs/video/vozes/
+docs/video/edicao/
